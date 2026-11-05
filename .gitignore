@@ -8,3 +8,5 @@ evidence/
 playwright/.auth/
 fila-*.json
 coleta-*.json
+sessao-*.bin
+.env

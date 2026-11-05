@@ -63,3 +63,15 @@ Os resultados e o perfil de navegador ficam em `%LOCALAPPDATA%\Circulo\coletor`,
 O coletor lê páginas de perfil, baixa apenas imagens dos domínios de mídia conhecidos e gera miniaturas JPEG de 128 × 128. Não usa APIs internas, proxies, solução de CAPTCHA ou técnicas de evasão. Para diante de verificações, limites, falhas consecutivas ou quando você escolhe **Parar e salvar**. Uma foto não encontrada é inconclusiva: nunca vira automaticamente “desativada”. O layout pode exigir ajustes quando o Instagram mudar. O total por arquivo de resultados é de até 1.000 fotos / 11,5 MB; importe e arquive o arquivo antes de iniciar outro lote de resultados da mesma conta.
 
 Verificações do coletor: com o Python do ambiente local, execute `python -m unittest test_coletor -v`. Os testes de navegador usam páginas simuladas em Chrome local e não acessam contas do Instagram.
+
+## Teste autenticado do instagrapi
+
+Abra **Testar login Instagram.cmd**. A dependência `instagrapi==3.2.3` é instalada no ambiente local do Círculo se necessário. O programa abre uma página local na porta 8767, exclusiva para um teste com o perfil `adele`. O serviço escuta somente `127.0.0.1`; não publique esse serviço nem a página de autenticação em hospedagem pública.
+
+Digite as credenciais somente nessa página. A senha é encaminhada ao Instagram pelo instagrapi e não é gravada em arquivos ou logs. Se o Instagram pedir autenticação de dois fatores, o formulário local recebe o código. Verificações adicionais interrompem o teste para serem feitas no aplicativo oficial; não são resolvidas automaticamente. Nenhuma sessão do Chrome é extraída.
+
+**Guardar sessão protegida neste Windows** é opcional e começa desmarcado. Quando marcado, campos de sessão são criptografados via DPAPI para o usuário atual do Windows e guardados em `%LOCALAPPDATA%\Circulo\instagrapi\sessao-USUARIO.bin`, fora do OneDrive e do Git. A senha não é incluída nesses campos. A opção desmarcada não carrega nem regrava sessões antigas. Não compartilhe essa pasta; a sessão equivale a acesso autenticado.
+
+A API local exige um token aleatório por execução, confere Host e Origin, limita o corpo dos pedidos e não registra URLs, corpos, respostas ou credenciais. A página aplica política de conteúdo restrita e não permite ser embutida em outros sites. O resultado exibido não inclui cookies ou tokens. Encerre o programa local após o teste.
+
+Verificações: no ambiente com instagrapi instalado, execute `python -m unittest test_login_local -v`. Os testes usam credenciais fictícias e cliente simulado; não fazem login em uma conta real.
