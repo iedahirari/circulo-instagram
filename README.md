@@ -75,3 +75,5 @@ Digite as credenciais somente nessa página. A senha é encaminhada ao Instagram
 A API local exige um token aleatório por execução, confere Host e Origin, limita o corpo dos pedidos e não registra URLs, corpos, respostas ou credenciais. A página aplica política de conteúdo restrita e não permite ser embutida em outros sites. O resultado exibido não inclui cookies ou tokens. Encerre o programa local após o teste.
 
 Verificações: no ambiente com instagrapi instalado, execute `python -m unittest test_login_local -v`. Os testes usam credenciais fictícias e cliente simulado; não fazem login em uma conta real.
+
+Se uma tentativa falhar, a página mostra **Referência do erro** com apenas o nome da exceção e, quando disponível, o código HTTP. O diagnóstico não inclui a mensagem bruta do SDK, senha, código, cookies ou resposta do Instagram. Erros de conexão são diferenciados de credenciais não aceitas. Nenhuma tentativa é repetida automaticamente pelo aplicativo.

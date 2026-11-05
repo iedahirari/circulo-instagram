@@ -79,6 +79,8 @@ def login_payload(data):
 
 def friendly_error(error, authenticated=False):
     name = type(error).__name__
+    if any(part in name for part in ('Timeout', 'Connection', 'SSLError', 'ProxyError')):
+        return 'A conexão com o Instagram falhou ou demorou demais. O teste não confirma se as credenciais foram aceitas.'
     if name in ('ChallengeRequired', 'ChallengeError', 'ChallengeUnknownStep', 'ChallengeSelfieCaptcha', 'RecaptchaChallengeForm'):
         return 'O Instagram pediu uma verificação adicional. Faça-a no aplicativo oficial. O teste parou e não tentará contorná-la.'
     if name in ('PleaseWaitFewMinutes', 'FeedbackRequired', 'RateLimitError', 'ClientThrottledError'):
@@ -88,6 +90,12 @@ def friendly_error(error, authenticated=False):
     if authenticated:
         return 'O login foi aceito, mas a consulta do perfil não foi concluída. Isso não confirma desativação da conta.'
     return 'O login não foi concluído. Confira eventuais avisos no Instagram. Nenhuma nova tentativa será feita automaticamente.'
+
+
+def error_reference(error):
+    response = getattr(error, 'response', None)
+    status = getattr(response, 'status_code', None)
+    return {'code': type(error).__name__[:80], 'http': status if type(status) is int and 100 <= status <= 599 else None}
 
 
 class LoginTest:
@@ -170,7 +178,7 @@ class LoginTest:
         except TwoFactorRequired:
             self.update(phase='code_required', message='O Instagram pediu seu código de autenticação. Digite-o somente neste formulário local.')
         except Exception as error:
-            self.update(phase='error', message=friendly_error(error, authenticated))
+            self.update(phase='error', message=friendly_error(error, authenticated), reference=error_reference(error))
         finally:
             with self.lock:
                 waiting = self.state['phase'] == 'code_required'

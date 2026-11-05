@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from instagrapi.exceptions import TwoFactorRequired
-from instagrapi_login import Handler, LoginTest, ThreadingHTTPServer, login_payload, protect, save_session
+from instagrapi_login import Handler, LoginTest, ThreadingHTTPServer, error_reference, friendly_error, login_payload, protect, save_session
 
 
 class LoginLocalTests(unittest.TestCase):
@@ -65,6 +65,13 @@ class LoginLocalTests(unittest.TestCase):
         self.assertEqual(state.state['phase'], 'error')
         self.assertNotIn('secret-cookie', json.dumps(state.state))
         self.assertNotIn('dummy-password', json.dumps(state.state))
+        self.assertEqual(state.state['reference'], {'code': 'RuntimeError', 'http': None})
+
+    def test_reference_contains_only_class_and_http_status(self):
+        error = RuntimeError('dummy-password secret-cookie')
+        error.response = SimpleNamespace(status_code=401, text='secret response')
+        self.assertEqual(error_reference(error), {'code': 'RuntimeError', 'http': 401})
+        self.assertIn('conexão', friendly_error(TimeoutError()).lower())
 
     def test_photo_failure_keeps_successful_profile_data(self):
         state, client = LoginTest(), self.client()

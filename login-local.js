@@ -21,6 +21,8 @@ async function poll(){
     const response=await fetch('/status',{headers:{'X-Circulo-Token':token}});
     if(!response.ok)throw Error('A janela de teste expirou. Abra novamente pelo programa local.');
     const state=await response.json();
+    $('error-reference').hidden=state.phase!=='error'||!state.reference;
+    $('error-reference').textContent=state.reference?'Referência do erro: '+state.reference.code+(state.reference.http?' · HTTP '+state.reference.http:''):'';
     if(state.phase!=='ready')message(state.message,state.phase==='error');
     const busy=['logging_in','querying','code_required'].includes(state.phase);
     $('login').disabled=busy;$('username').disabled=busy;$('password').disabled=busy;$('remember').disabled=busy;
