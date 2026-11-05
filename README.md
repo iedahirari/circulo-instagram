@@ -45,3 +45,21 @@ A pasta `extension` contém uma extensão Chrome/Edge independente que captura f
 No aplicativo, selecione a consulta da conta usada na captura e clique em **Importar fotos**. O arquivo `circulo-photos-v1` acrescenta fotos a perfis conhecidos do histórico, preservando categorias e fotos já salvas. Perfis desconhecidos são ignorados com contagem; conta divergente ou arquivo inválido não altera nada. Para atualizar uma foto existente, remova a referência antiga antes de importar. As fotos importadas também entram no backup normal. O aplicativo continua sem fazer requisições ao Instagram; somente a extensão faz downloads das imagens quando acionada.
 
 A extensão 0.2 acumula capturas no armazenamento local por conta e permite continuar após fechar a janela. No aplicativo, o indicador de cobertura e o filtro **Somente sem foto** ajudam a localizar os perfis restantes. O progresso da extensão se refere à parte visível reconhecida, não à lista inteira do Instagram.
+
+## Coletor local gratuito (sem extensão)
+
+Requer Python 3 e Google Chrome. Abra **Abrir Coletor.cmd**: a primeira abertura prepara o Playwright em um ambiente separado em `%LOCALAPPDATA%\Circulo\python`. Não exige serviço pago ou chave de API.
+
+1. No Círculo, escolha a lista, busca e categoria desejadas e clique em **Preparar coleta local**. A fila inclui somente os perfis sem foto, até 1.000 por arquivo; identificadores de contas excluídas da exportação são ignorados.
+2. Abra **Abrir Coletor.cmd** e escolha o arquivo `fila-…json` baixado.
+3. Entre no Instagram no navegador separado que abrir. Depois clique em **Iniciar coleta** na janela do coletor.
+4. O programa visita até 10 perfis por execução. As fotos concluídas são salvas imediatamente; execute novamente para retomar, sem repetir as já guardadas.
+5. Clique em **Abrir pasta dos resultados** e importe o arquivo `coleta-CONTA.json` no botão **Importar fotos** do Círculo.
+
+Para escolher outro tamanho de lote, execute o coletor com `--limit 1` a `--limit 50` (padrão: 10). O argumento `--input CAMINHO` permite selecionar uma fila diretamente.
+
+Os resultados e o perfil de navegador ficam em `%LOCALAPPDATA%\Circulo\coletor`, fora deste repositório e fora da pasta OneDrive do projeto. O perfil guarda a sessão do Instagram, como um navegador normal; não compartilhe essa pasta. Nenhuma senha é solicitada pelo aplicativo. Feche a coleta anterior antes de abrir outra. A sessão pode expirar e exigir novo login.
+
+O coletor lê páginas de perfil, baixa apenas imagens dos domínios de mídia conhecidos e gera miniaturas JPEG de 128 × 128. Não usa APIs internas, proxies, solução de CAPTCHA ou técnicas de evasão. Para diante de verificações, limites, falhas consecutivas ou quando você escolhe **Parar e salvar**. Uma foto não encontrada é inconclusiva: nunca vira automaticamente “desativada”. O layout pode exigir ajustes quando o Instagram mudar. O total por arquivo de resultados é de até 1.000 fotos / 11,5 MB; importe e arquive o arquivo antes de iniciar outro lote de resultados da mesma conta.
+
+Verificações do coletor: com o Python do ambiente local, execute `python -m unittest test_coletor -v`. Os testes de navegador usam páginas simuladas em Chrome local e não acessam contas do Instagram.

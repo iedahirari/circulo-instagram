@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {names,compare,validateSnapshot,parseExport,validateProfile,profileKey,mergePhotoImport} from './core.mjs';
+import {names,compare,validateSnapshot,parseExport,validateProfile,profileKey,mergePhotoImport,makePhotoQueue} from './core.mjs';
 assert.deepEqual(names([{string_list_data:[{value:'Alice'}]},{string_list_data:[{value:'alice'}]}]),['alice']);
 assert.throws(()=>names([{string_list_data:[{value:'<script>'}]}]));
 assert.deepEqual(compare({followers:['b','c'],following:['a','b']},{followers:['a','b']}),{followers:['b','c'],lost:['a'],gained:['c'],nonmutual:['a']});
@@ -30,4 +30,10 @@ assert.equal(mergePhotoImport(captured,'ieda',new Map(),new Set()).unknown,1);
 assert.throws(()=>mergePhotoImport(captured,'outra',prior,new Set(['alice'])));
 assert.throws(()=>mergePhotoImport({...captured,photos:[...captured.photos,...captured.photos]},'ieda',prior,new Set(['alice'])));
 assert.throws(()=>mergePhotoImport({...captured,photos:[{username:'alice',photo:'https://example.com/photo.jpg'}]},'ieda',prior,new Set(['alice'])));
-console.log('24 verificações passaram.');
+const queue=makePhotoQueue('ieda',['alice','bob','bob','__deleted__conta'],merged.profiles);
+assert.deepEqual(queue.queue.users,['bob']);
+assert.equal(queue.skipped,1);
+assert.equal(makePhotoQueue('ieda',Array.from({length:1001},(_,i)=>'user'+i),new Map()).remaining,1);
+assert.equal(makePhotoQueue('ieda',Array.from({length:1001},(_,i)=>'user'+i),new Map()).queue.users.length,1000);
+assert.throws(()=>makePhotoQueue('../ieda',[],new Map()));
+console.log('29 verificações passaram.');

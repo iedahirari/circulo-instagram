@@ -4,3 +4,7 @@ dados/
 *backup*.json
 __pycache__/
 evidence/
+.venv/
+playwright/.auth/
+fila-*.json
+coleta-*.json

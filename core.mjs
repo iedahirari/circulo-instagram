@@ -16,6 +16,12 @@ export function compare(current, previous) {
 }
 export const categories = {'review':'A revisar', 'personal':'Pessoal', 'artist':'Artista/figura pública', 'brand':'Marca/organização'};
 export function profileKey(account, username) { return JSON.stringify([account, username]); }
+export function makePhotoQueue(account, usernames, profiles) {
+  if(typeof account!=='string'||!/^[a-z0-9_.]{1,30}$/.test(account)||!Array.isArray(usernames))throw Error('Selecione uma consulta válida antes de preparar a coleta.');
+  const missing=[...new Set(usernames)].filter(name=>!profiles.get(profileKey(account,name))?.photo);
+  const valid=missing.filter(name=>typeof name==='string'&&/^[a-z0-9_.]{1,30}$/.test(name)&&!name.startsWith('__deleted__'));
+  return {queue:{format:'circulo-queue-v1',account,users:valid.slice(0,1000)},skipped:missing.length-valid.length,remaining:Math.max(0,valid.length-1000)};
+}
 export function validateProfile(p) {
   if (!p || typeof p.account!=='string' || !/^[a-z0-9_.]{1,30}$/.test(p.account) || typeof p.username!=='string' || !/^[a-z0-9_.]{1,100}$/.test(p.username) || !Object.hasOwn(categories,p.category)) throw Error('Perfil ou categoria inválida no backup.');
   if (p.photo!==null && (typeof p.photo!=='string' || p.photo.length>100000 || !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(p.photo))) throw Error('Foto inválida no backup. Use imagens adicionadas pelo Círculo.');
