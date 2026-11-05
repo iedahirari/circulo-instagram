@@ -1,0 +1,6 @@
+dados/
+*.zip
+*.csv
+*backup*.json
+__pycache__/
+evidence/

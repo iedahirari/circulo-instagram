@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {names,compare,validateSnapshot,parseExport} from './core.mjs';
+assert.deepEqual(names([{string_list_data:[{value:'Alice'}]},{string_list_data:[{value:'alice'}]}]),['alice']);
+assert.throws(()=>names([{string_list_data:[{value:'<script>'}]}]));
+assert.deepEqual(compare({followers:['b','c'],following:['a','b']},{followers:['a','b']}),{followers:['b','c'],lost:['a'],gained:['c'],nonmutual:['a']});
+assert.equal(compare({followers:[],following:null}).lost,null);
+assert.equal(compare({followers:[],following:null}).nonmutual,null);
+const valid={id:'1',account:'ieda',date:'2026-11-04',source:'test.zip',followers:['a'],following:null};
+assert.equal(validateSnapshot(valid).account,'ieda');
+assert.throws(()=>validateSnapshot({...valid,date:'2026-02-31'}));
+assert.throws(()=>validateSnapshot({...valid,followers:['a','a']}));
+assert.throws(()=>validateSnapshot({...valid,followers:['javascript:alert(1)']}));
+await assert.rejects(parseExport(new File(['{}'],'following.json')),/seguidores/);
+await assert.rejects(parseExport(new File(['bad'],'followers_1.json')));
+console.log('10 verificações passaram.');
