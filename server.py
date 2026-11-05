@@ -6,7 +6,7 @@ import webbrowser
 
 ROOT = Path(__file__).resolve().parent
 PORT = 8765
-ALLOWED = {'/', '/index.html', '/style.css', '/app.js', '/core.mjs'}
+ALLOWED = {'/', '/index.html', '/style.css', '/app.js', '/core.mjs', '/session-collector.js', '/COLETA-NAVEGADOR.md'}
 
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):

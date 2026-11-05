@@ -1,5 +1,13 @@
 # Círculo
 
+## Coleta pela sessão aberta (experimental)
+
+O aplicativo também importa o JSON `circulo-session-v1` gerado por `session-collector.js`, executado manualmente na própria aba conectada do Instagram. A opção **Coletar pela sessão aberta** oferece o arquivo e o [guia de uso](COLETA-NAVEGADOR.md). Sem extensão, dependências novas ou login pela biblioteca Android.
+
+As duas listas precisam terminar e corresponder aos totais antes/depois da leitura. Erros, cursores repetidos e resultados parciais não geram consulta. A importação salva consulta e metadados numa única transação e preserva fotos/categorias anteriores. Nomes completos e selos coletados aparecem no perfil; os IDs são guardados, mas a comparação continua por nome de usuário. Links temporários das fotos ficam no JSON, sem download automático de imagens. O coletor usa recursos internos do Instagram e pode ser recusado ou limitado.
+
+Referências e limites constam no guia. Testes adicionais: `node test_session.cjs` e `node test_session_import.mjs`. São testes simulados, sem acesso ao Instagram.
+
 Um aplicativo local para acompanhar conexões do Instagram. HTML, CSS e JavaScript sem dependências externas. Importa ZIPs de exportações em JSON, compara seguidores, identifica novas conexões e mostra contas que não seguem de volta.
 
 ## Abrir

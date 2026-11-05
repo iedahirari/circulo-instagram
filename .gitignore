@@ -10,3 +10,4 @@ fila-*.json
 coleta-*.json
 sessao-*.bin
 .env
+circulo-consulta-*.json

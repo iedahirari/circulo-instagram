@@ -27,7 +27,31 @@ export function validateProfile(p) {
   if (p.photo!==null && (typeof p.photo!=='string' || p.photo.length>100000 || !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(p.photo))) throw Error('Foto inválida no backup. Use imagens adicionadas pelo Círculo.');
   const categorySource=p.categorySource||'manual';
   if(!['manual','suggestion','unclassified'].includes(categorySource))throw Error('Origem da categoria inválida.');
-  return {id:profileKey(p.account,p.username),account:p.account,username:p.username,category:p.category,categorySource,photo:p.photo};
+  const metadata={};
+  if(p.instagramId!==undefined){
+    if(typeof p.instagramId!=='string'||!/^\d{1,30}$/.test(p.instagramId)||typeof p.fullName!=='string'||p.fullName.length>200||typeof p.isVerified!=='boolean')throw Error('Dados de perfil inválidos.');
+    Object.assign(metadata,{instagramId:p.instagramId,fullName:p.fullName,isVerified:p.isVerified});
+  }
+  return {id:profileKey(p.account,p.username),account:p.account,username:p.username,category:p.category,categorySource,photo:p.photo,...metadata};
+}
+export function parseSession(data) {
+  if(data.complete!==true||typeof data.capturedAt!=='string'||!Number.isFinite(Date.parse(data.capturedAt)))throw Error('Coleta incompleta ou data inválida.');
+  const parsed={account:data.account,capturedAt:data.capturedAt,profiles:[]};
+  const byName=new Map(), byId=new Map();
+  for(const kind of ['followers','following']){
+    const rows=data[kind];
+    if(!Array.isArray(rows)||rows.length>20000||rows.length!==data.counts?.[kind]||new Set(rows.map(u=>u?.id)).size!==rows.length)throw Error('Totais da coleta não conferem.');
+    parsed[kind]=rows.map(u=>{
+      if(typeof u?.id!=='string')throw Error('Perfil sem identificação na coleta.');
+      const p=validateProfile({account:data.account,username:u?.username,instagramId:u?.id,fullName:u?.fullName,isVerified:u?.isVerified,photo:null,category:'review',categorySource:'unclassified'});
+      if(byName.has(p.username)&&byName.get(p.username)!==p.instagramId||byId.has(p.instagramId)&&byId.get(p.instagramId)!==p.username)throw Error('Identidades conflitantes na coleta.');
+      byName.set(p.username,p.instagramId);byId.set(p.instagramId,p.username);
+      parsed.profiles.push(p);return p.username;
+    });
+    if(new Set(parsed[kind]).size!==rows.length)throw Error('Perfis repetidos na coleta.');
+  }
+  parsed.profiles=[...new Map(parsed.profiles.map(p=>[p.id,p])).values()];
+  return parsed;
 }
 export function mergePhotoImport(data, account, existing, known) {
   if(data?.format!=='circulo-photos-v1' || data.account!==account || !Array.isArray(data.photos) || !data.photos.length || data.photos.length>1000) throw Error('Arquivo de fotos inválido ou de outra conta. Selecione uma consulta da conta usada na captura.');
@@ -89,6 +113,7 @@ export async function parseExport(file) {
   if(/\.zip$/i.test(file.name)) files=await readZip(await file.arrayBuffer());
   else if(/\.json$/i.test(file.name)) files=[{path:file.name,data:JSON.parse(await file.text())}];
   else throw Error('Escolha o ZIP ou JSON da exportação do Instagram.');
+  if(files.length===1&&files[0].data?.format==='circulo-session-v1')return parseSession(files[0].data);
   const followerFiles=files.filter(f=>/(?:^|\/)followers(?:_\d+)?\.json$/.test(f.path));
   if(!followerFiles.length) throw Error('Não encontrei seguidores. Exporte seguidores e seguindo em formato JSON.');
   const folders=new Set(followerFiles.map(f=>f.path.slice(0,f.path.lastIndexOf('/')+1)));

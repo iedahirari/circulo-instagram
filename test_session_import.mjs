@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {parseExport,validateProfile} from './core.mjs';
+const row={id:'12',username:'alice',fullName:'Alice',isVerified:true};
+const data={format:'circulo-session-v1',account:'ieda',capturedAt:'2026-11-05T15:00:00.000Z',complete:true,counts:{followers:1,following:1},followers:[row],following:[row]};
+const parse=d=>parseExport(new File([JSON.stringify(d)],'circulo-consulta.json'));
+const result=await parse(data);
+assert.deepEqual(result.followers,['alice']);assert.equal(result.profiles.length,1);
+assert.equal(validateProfile(result.profiles[0]).isVerified,true);
+await assert.rejects(parse({...data,complete:false}));
+await assert.rejects(parse({...data,counts:{followers:2,following:1}}));
+await assert.rejects(parse({...data,followers:[{...row,id:undefined}]}));
+await assert.rejects(parse({...data,following:[{...row,username:'bob'}]}));
+await assert.rejects(parse({...data,account:'../ieda'}));
+await assert.rejects(parse({...data,followers:[{...row,isVerified:'true'}]}));
+console.log('Importação da sessão e metadados verificados.');
