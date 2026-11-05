@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {collectVisibleProfiles,allowedPhotoUrl} from './collector.mjs';
+assert.equal(allowedPhotoUrl('https://scontent.cdninstagram.com/a.jpg'),true);
+assert.equal(allowedPhotoUrl('https://scontent.xx.fbcdn.net/a.jpg'),true);
+for(const url of ['http://scontent.cdninstagram.com/a.jpg','https://cdninstagram.com.evil.test/a.jpg','https://evil.test/a.jpg','https://x.cdninstagram.com:8443/a.jpg','https://user:password@x.cdninstagram.com/a.jpg','not-a-url'])assert.equal(allowedPhotoUrl(url),false);
+globalThis.location={hostname:'www.instagram.com',origin:'https://www.instagram.com',href:'https://www.instagram.com/'};
+globalThis.innerWidth=1000;globalThis.innerHeight=800;
+function image(href,src,top=20){return {complete:true,naturalWidth:128,currentSrc:src,src,getBoundingClientRect:()=>({top,bottom:top+44,left:10,right:54,width:44,height:44}),checkVisibility:()=>true,closest:()=>href?{href}:null};}
+const good=image('https://www.instagram.com/alice/','https://scontent.cdninstagram.com/a.jpg');
+const images=[good,image('https://www.instagram.com/p/','https://scontent.cdninstagram.com/p.jpg'),image('https://evil.test/alice/','https://scontent.cdninstagram.com/a.jpg'),image('https://www.instagram.com/bob/','https://evil.test/b.jpg'),image('https://www.instagram.com/hidden/','https://scontent.cdninstagram.com/a.jpg',900),image(null,'https://scontent.cdninstagram.com/a.jpg')];
+globalThis.document={querySelectorAll:()=>images,elementFromPoint:()=>good};
+assert.deepEqual(collectVisibleProfiles(),[{username:'alice',url:'https://scontent.cdninstagram.com/a.jpg'}]);
+document.elementFromPoint=()=>null;
+assert.deepEqual(collectVisibleProfiles(),[]);
+location.hostname='example.com';
+assert.deepEqual(collectVisibleProfiles(),[]);
+const manifest=JSON.parse(await readFile(new URL('./manifest.json',import.meta.url)));
+assert.equal(manifest.manifest_version,3);
+assert.deepEqual(manifest.permissions,['activeTab','scripting']);
+assert.equal(manifest.host_permissions.length,2);
+console.log('14 verificações da extensão passaram.');

@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Círculo · Fotos visíveis",
+  "version": "0.1.0",
+  "description": "Captura fotos de perfis visíveis no Instagram para importar no Círculo, sem consultar listas ocultas.",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["https://*.cdninstagram.com/*", "https://*.fbcdn.net/*"],
+  "action": {"default_popup": "popup.html", "default_title": "Círculo · Capturar fotos visíveis"},
+  "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'none'; connect-src https://*.cdninstagram.com https://*.fbcdn.net; img-src 'self' data:; style-src 'self'"}
+}

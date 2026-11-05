@@ -1,4 +1,4 @@
-import {parseExport,compare,validateSnapshot,categories,profileKey,validateProfile} from './core.mjs';
+import {parseExport,compare,validateSnapshot,categories,profileKey,validateProfile,mergePhotoImport} from './core.mjs';
 const $=id=>document.getElementById(id);
 let snapshots=[], pending=null, filter='followers', limit=50, db, reading=false, profiles=new Map(), photoTarget=null;
 function notify(text,error=false){$('notice').textContent=text;$('notice').classList.toggle('error',error);$('notice').hidden=false;}
@@ -45,6 +45,18 @@ $('import-form').addEventListener('submit',async e=>{e.preventDefault();if(!pend
 $('history').addEventListener('change',()=>{limit=50;render();});$('search').addEventListener('input',()=>{limit=50;render();});$('filters').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(b){filter=b.dataset.filter;limit=50;render();}});$('more').addEventListener('click',()=>{limit+=50;render();});
 $('export').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({format:'circulo-v1',snapshots,profiles:[...profiles.values()]},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='circulo-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('Backup preparado. Guarde o arquivo em uma pasta segura.');});
 $('restore').addEventListener('change',async e=>{const file=e.target.files[0];if(!file||!db)return;try{if(file.size>60000000)throw Error('Backup muito grande. Limite: 60 MB.');const data=JSON.parse(await file.text());if(data.format!=='circulo-v1'||!Array.isArray(data.snapshots)||data.snapshots.length>1000)throw Error('Este não é um backup válido do Círculo.');if(data.profiles!==undefined && (!Array.isArray(data.profiles)||data.profiles.length>500000))throw Error('Perfis inválidos no backup.');const incomingProfiles=(data.profiles||[]).map(validateProfile);const incoming=data.snapshots.map(validateSnapshot),all=[...snapshots];for(const s of incoming){const existing=all.find(x=>x.account===s.account&&x.date===s.date);if(existing){if(JSON.stringify(existing.followers)!==JSON.stringify(s.followers)||JSON.stringify(existing.following)!==JSON.stringify(s.following))throw Error('Há consultas diferentes para a mesma conta e data. Nada foi alterado.');continue;}if(all.some(x=>x.id===s.id))throw Error('Identificador de consulta duplicado no backup.');all.push(s);}const merged=new Map(profiles);for(const p of incomingProfiles)if(!merged.has(p.id))merged.set(p.id,p);await new Promise((resolve,reject)=>{const tx=db.transaction(['snapshots','profiles'],'readwrite');for(const s of all)tx.objectStore('snapshots').put(s);for(const p of merged.values())tx.objectStore('profiles').put(p);tx.oncomplete=resolve;tx.onerror=()=>reject(Error('Não foi possível restaurar. Nada foi alterado.'));tx.onabort=()=>reject(Error('Restauração cancelada. Nada foi alterado.'));});await reload();notify('Backup restaurado. Consultas, fotos e categorias existentes foram preservadas.');}catch(err){notify(err instanceof SyntaxError?'Não foi possível ler este backup. Escolha o arquivo baixado pelo Círculo.':err.message,true);}finally{e.target.value='';}});
+$('photos-import').addEventListener('change',async event=>{
+  const file=event.target.files[0];event.target.value='';if(!file||!db)return;
+  try{
+    const selected=current();if(!selected)throw Error('Salve ou selecione uma consulta antes de importar fotos.');
+    if(file.size>12000000)throw Error('Arquivo de fotos muito grande. Limite: 12 MB.');
+    const known=new Set(snapshots.filter(s=>s.account===selected.account).flatMap(s=>[...s.followers,...(s.following||[])]));
+    const result=mergePhotoImport(JSON.parse(await file.text()),selected.account,profiles,known);
+    await stored('readwrite',store=>{for(const p of result.profiles.values())store.put(p);},'profiles');
+    profiles=result.profiles;render();
+    notify('Fotos adicionadas: '+result.added+'. Fotos existentes preservadas: '+result.kept+'.'+(result.unknown?' Perfis fora do histórico desta conta: '+result.unknown+'.':''));
+  }catch(error){notify(error instanceof SyntaxError?'Arquivo de fotos inválido. Use o JSON baixado pela extensão Círculo.':error.message,true);}
+});
 async function saveProfile(account,username,changes){
   const id=profileKey(account,username), old=profiles.get(id)||{id,account,username,category:'review',categorySource:'unclassified',photo:null};
   const record=validateProfile({...old,...changes});

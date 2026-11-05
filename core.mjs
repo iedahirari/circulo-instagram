@@ -23,6 +23,20 @@ export function validateProfile(p) {
   if(!['manual','suggestion','unclassified'].includes(categorySource))throw Error('Origem da categoria inválida.');
   return {id:profileKey(p.account,p.username),account:p.account,username:p.username,category:p.category,categorySource,photo:p.photo};
 }
+export function mergePhotoImport(data, account, existing, known) {
+  if(data?.format!=='circulo-photos-v1' || data.account!==account || !Array.isArray(data.photos) || !data.photos.length || data.photos.length>1000) throw Error('Arquivo de fotos inválido ou de outra conta. Selecione uma consulta da conta usada na captura.');
+  const merged=new Map(existing), seen=new Set();let added=0, kept=0, unknown=0;
+  for(const item of data.photos){
+    const candidate=validateProfile({account,username:item?.username,photo:item?.photo,category:'review',categorySource:'unclassified'});
+    if(candidate.photo===null || seen.has(candidate.username))throw Error('O arquivo contém fotos vazias ou perfis repetidos.');
+    seen.add(candidate.username);
+    if(!known.has(candidate.username)){unknown++;continue;}
+    const saved=merged.get(candidate.id);
+    if(saved?.photo){kept++;continue;}
+    merged.set(candidate.id,validateProfile({...candidate,...saved,photo:candidate.photo}));added++;
+  }
+  return {profiles:merged,added,kept,unknown};
+}
 export function validateSnapshot(s) {
   if (!s || typeof s.account!=='string' || !/^[a-z0-9_.]{1,30}$/.test(s.account) || !/^\d{4}-\d{2}-\d{2}$/.test(s.date) || !Number.isFinite(Date.parse(s.date)) || new Date(s.date).toISOString().slice(0,10)!==s.date) throw Error('Conta ou data inválida no backup.');
   for (const field of ['followers','following']) {

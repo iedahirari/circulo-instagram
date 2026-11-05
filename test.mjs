@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {names,compare,validateSnapshot,parseExport,validateProfile,profileKey} from './core.mjs';
+import {names,compare,validateSnapshot,parseExport,validateProfile,profileKey,mergePhotoImport} from './core.mjs';
 assert.deepEqual(names([{string_list_data:[{value:'Alice'}]},{string_list_data:[{value:'alice'}]}]),['alice']);
 assert.throws(()=>names([{string_list_data:[{value:'<script>'}]}]));
 assert.deepEqual(compare({followers:['b','c'],following:['a','b']},{followers:['a','b']}),{followers:['b','c'],lost:['a'],gained:['c'],nonmutual:['a']});
@@ -20,4 +20,14 @@ assert.throws(()=>validateProfile({...profile,photo:'data:image/svg+xml;base64,P
 assert.throws(()=>validateProfile({...profile,photo:'data:image/jpeg;base64,'+'a'.repeat(100001)}));
 assert.equal(validateProfile({...profile,photo:'data:image/jpeg;base64,/9j/'}).photo,'data:image/jpeg;base64,/9j/');
 assert.notEqual(profileKey('outra','alice'),profileKey('ieda','alice'));
-console.log('17 verificações passaram.');
+const captured={format:'circulo-photos-v1',account:'ieda',photos:[{username:'alice',photo:'data:image/jpeg;base64,/9j/'}]};
+const prior=new Map([[profileKey('ieda','alice'),validateProfile(profile)]]);
+const merged=mergePhotoImport(captured,'ieda',prior,new Set(['alice']));
+assert.equal(merged.added,1);
+assert.equal(merged.profiles.get(profileKey('ieda','alice')).category,'artist');
+assert.equal(mergePhotoImport(captured,'ieda',merged.profiles,new Set(['alice'])).kept,1);
+assert.equal(mergePhotoImport(captured,'ieda',new Map(),new Set()).unknown,1);
+assert.throws(()=>mergePhotoImport(captured,'outra',prior,new Set(['alice'])));
+assert.throws(()=>mergePhotoImport({...captured,photos:[...captured.photos,...captured.photos]},'ieda',prior,new Set(['alice'])));
+assert.throws(()=>mergePhotoImport({...captured,photos:[{username:'alice',photo:'https://example.com/photo.jpg'}]},'ieda',prior,new Set(['alice'])));
+console.log('24 verificações passaram.');

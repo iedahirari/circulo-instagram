@@ -37,3 +37,9 @@ Clique nas iniciais de um perfil para escolher uma foto de referência local (JP
 Na aba Não seguem de volta, classifique manualmente os perfis como Pessoal, Artista/figura pública, Marca/organização ou A revisar. O filtro mostra o total de cada categoria. Fotos e categorias pertencem à combinação conta consultada + nome do perfil; persistem entre consultas sem alterar os arquivos originais. Mudanças de nome não transferem a classificação automaticamente.
 
 Fotos e categorias acompanham o backup. Backups antigos sem esse campo continuam aceitos. Na restauração, fotos e categorias já existentes no navegador são preservadas; novos registros são acrescentados. A atualização do banco preserva as consultas antigas. Feche outras abas antigas do Círculo se o navegador informar que a atualização está bloqueada.
+
+## Extensão para capturar fotos visíveis
+
+A pasta `extension` contém uma extensão Chrome/Edge independente que captura fotos de perfis visíveis na página do Instagram. Instalação e uso em [extension/LEIA-ME.md](extension/LEIA-ME.md). A captura não percorre a conta inteira, não usa a exportação do Instagram para buscar imagens e não lê dados de outras extensões.
+
+No aplicativo, selecione a consulta da conta usada na captura e clique em **Importar fotos**. O arquivo `circulo-photos-v1` acrescenta fotos a perfis conhecidos do histórico, preservando categorias e fotos já salvas. Perfis desconhecidos são ignorados com contagem; conta divergente ou arquivo inválido não altera nada. Para atualizar uma foto existente, remova a referência antiga antes de importar. As fotos importadas também entram no backup normal. O aplicativo continua sem fazer requisições ao Instagram; somente a extensão faz downloads das imagens quando acionada.
