@@ -29,3 +29,11 @@ ZIP clássico stored/deflate, até 100 MB, com no máximo 60 MB de JSON relevant
 Com Node.js: `node test.mjs`. Para conferir uma exportação real: `node verify-export.mjs CAMINHO_DO_ZIP`.
 
 Dados pessoais, exportações, backups e capturas de teste não devem ser versionados. A `.gitignore` bloqueia formatos comuns; revise sempre os arquivos antes de enviar.
+
+## Fotos e categorias
+
+Clique nas iniciais de um perfil para escolher uma foto de referência local (JPG, PNG ou WebP até 5 MB e 40 megapixels). A imagem é recortada no centro e salva como uma miniatura JPEG de 128 × 128 pixels; o original não é guardado. Fotos não são buscadas no Instagram e não confirmam identidade ou estado da conta. A opção Remover foto exclui a referência local.
+
+Na aba Não seguem de volta, classifique manualmente os perfis como Pessoal, Artista/figura pública, Marca/organização ou A revisar. O filtro mostra o total de cada categoria. Fotos e categorias pertencem à combinação conta consultada + nome do perfil; persistem entre consultas sem alterar os arquivos originais. Mudanças de nome não transferem a classificação automaticamente.
+
+Fotos e categorias acompanham o backup. Backups antigos sem esse campo continuam aceitos. Na restauração, fotos e categorias já existentes no navegador são preservadas; novos registros são acrescentados. A atualização do banco preserva as consultas antigas. Feche outras abas antigas do Círculo se o navegador informar que a atualização está bloqueada.

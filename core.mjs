@@ -14,6 +14,15 @@ export function compare(current, previous) {
     gained:previous ? [...now].filter(n=>!before.has(n)) : null,
     nonmutual:current.following ? current.following.filter(n=>!now.has(n)) : null};
 }
+export const categories = {'review':'A revisar', 'personal':'Pessoal', 'artist':'Artista/figura pública', 'brand':'Marca/organização'};
+export function profileKey(account, username) { return JSON.stringify([account, username]); }
+export function validateProfile(p) {
+  if (!p || typeof p.account!=='string' || !/^[a-z0-9_.]{1,30}$/.test(p.account) || typeof p.username!=='string' || !/^[a-z0-9_.]{1,100}$/.test(p.username) || !Object.hasOwn(categories,p.category)) throw Error('Perfil ou categoria inválida no backup.');
+  if (p.photo!==null && (typeof p.photo!=='string' || p.photo.length>100000 || !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(p.photo))) throw Error('Foto inválida no backup. Use imagens adicionadas pelo Círculo.');
+  const categorySource=p.categorySource||'manual';
+  if(!['manual','suggestion','unclassified'].includes(categorySource))throw Error('Origem da categoria inválida.');
+  return {id:profileKey(p.account,p.username),account:p.account,username:p.username,category:p.category,categorySource,photo:p.photo};
+}
 export function validateSnapshot(s) {
   if (!s || typeof s.account!=='string' || !/^[a-z0-9_.]{1,30}$/.test(s.account) || !/^\d{4}-\d{2}-\d{2}$/.test(s.date) || !Number.isFinite(Date.parse(s.date)) || new Date(s.date).toISOString().slice(0,10)!==s.date) throw Error('Conta ou data inválida no backup.');
   for (const field of ['followers','following']) {
