@@ -73,6 +73,13 @@ class LoginLocalTests(unittest.TestCase):
         self.assertEqual(error_reference(error), {'code': 'RuntimeError', 'http': 401})
         self.assertIn('conexão', friendly_error(TimeoutError()).lower())
 
+    def test_upgrade_error_explains_compatibility_without_exposing_response(self):
+        error = type('ClientNeedsUpgradeError', (Exception,), {})('secret response')
+        message = friendly_error(error)
+        self.assertIn('compatibilidade', message)
+        self.assertIn('Não repita o login', message)
+        self.assertNotIn('secret response', message)
+
     def test_photo_failure_keeps_successful_profile_data(self):
         state, client = LoginTest(), self.client()
         client.user_info_by_username.return_value.profile_pic_url = 'https://scontent.cdninstagram.com/dummy.jpg'

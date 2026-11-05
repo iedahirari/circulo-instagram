@@ -79,6 +79,8 @@ def login_payload(data):
 
 def friendly_error(error, authenticated=False):
     name = type(error).__name__
+    if name == 'ClientNeedsUpgradeError':
+        return 'O Instagram recusou a versão de aplicativo usada pela biblioteca. Isso não confirma senha incorreta nem conta desativada. Não repita o login agora: esta integração precisa de uma correção de compatibilidade.'
     if any(part in name for part in ('Timeout', 'Connection', 'SSLError', 'ProxyError')):
         return 'A conexão com o Instagram falhou ou demorou demais. O teste não confirma se as credenciais foram aceitas.'
     if name in ('ChallengeRequired', 'ChallengeError', 'ChallengeUnknownStep', 'ChallengeSelfieCaptcha', 'RecaptchaChallengeForm'):
