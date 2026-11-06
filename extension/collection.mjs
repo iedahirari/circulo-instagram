@@ -77,4 +77,4 @@ $('download').onclick=async()=>{
     status(omitted?'Consulta baixada. Algumas fotos ficaram fora do arquivo pelo limite de tamanho; continuam guardadas na extensão.':'Arquivo preparado. No Círculo, importe em “Escolher arquivo do Instagram”.');
   }catch(error){status(error.message,true);}
 };
-try{db=await openDB();const {lastCollectionAccount}=await chrome.storage.local.get('lastCollectionAccount');if(lastCollectionAccount)scan=await stored('scans','readonly',s=>s.get(lastCollectionAccount));await showResult();}catch(error){$('start').disabled=true;status(error.message,true);}
+try{db=await openDB();const {lastCollectionAccount}=await chrome.storage.local.get('lastCollectionAccount');if(lastCollectionAccount)scan=await stored('scans','readonly',s=>s.get(lastCollectionAccount));await showResult();$('start').disabled=false;}catch(error){$('start').disabled=true;status(error.message,true);}
