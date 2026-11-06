@@ -1,5 +1,33 @@
 # Círculo · Fotos visíveis
 
+## Versão 0.3 — Coletar conexões e fotos
+
+Se já instalou a extensão, atualize os arquivos desta pasta e clique em **Recarregar** no cartão da extensão em `chrome://extensions`. Ela passa a se chamar **Círculo · Conexões e fotos**, sem permissões adicionais.
+
+1. Abra o Instagram conectado. Não precisa abrir a lista nem rolar a página.
+2. Clique na extensão e escolha **Coletar conexões e fotos**.
+3. Na aba que abrir, clique em **Iniciar coleta**. Sua conta é identificada automaticamente.
+4. Mantenha essa aba e a do Instagram abertas. O painel mostra a leitura das listas e a busca das fotos.
+5. Clique em **Baixar para o Círculo** e importe o arquivo em **Escolher arquivo do Instagram** no aplicativo. As listas, nomes, selos e fotos são importados juntos.
+
+**Parar e guardar progresso** preserva cada foto já salva. Depois de concluídas as listas, **Continuar fotos restantes** retoma as imagens que faltam, inclusive após fechar e reabrir a aba. Uma coleta interrompida durante as listas não substitui a última consulta completa. A última consulta completa por conta fica no IndexedDB da extensão; o histórico continua sendo mantido pelo aplicativo Círculo.
+
+O arquivo pode ser importado novamente para acrescentar fotos à consulta do mesmo dia se as listas forem idênticas. Consultas conflitantes da mesma conta/data são recusadas. Fotos e categorias existentes no aplicativo são preservadas.
+
+As fotos da captura visível anterior são aproveitadas quando os nomes correspondem. O modo antigo continua em **Capturar só as fotos visíveis**. Ele mantém seu limite de 1.000 fotos/8 MB; a coleta nova usa IndexedDB, sujeito ao espaço disponível do navegador. Limpar dados ou desinstalar remove os dados da extensão; baixe e importe para manter sua cópia.
+
+### Limites da coleta integrada
+
+A versão nova consulta recursos internos do Instagram na própria aba usando a sessão conectada, sem exportar cookies ou senha. Só consulta a própria conta; confere a sessão a cada resposta, exige as duas listas completas e compara os totais antes/depois. Há limite de 20 mil perfis por lista, três segundos entre páginas e nenhum reenvio automático após erro/restrição. Fechar ou navegar a aba do Instagram pode interromper a leitura.
+
+As imagens são baixadas sem credenciais, exclusivamente dos domínios de mídia Meta/Instagram, e convertidas em JPEG de 128 × 128. Falhas consecutivas nas imagens interrompem essa etapa mantendo as listas completas. Ausência de foto não comprova desativação ou bloqueio. Links podem expirar; nesse caso uma nova coleta pode ser necessária. Não há garantia de sucesso nem de que todos os perfis serão disponibilizados pelo Instagram.
+
+Para manter a importação abaixo do limite de tamanho, cada arquivo inclui até 30 MB de fotos únicas; fotos excedentes continuam na extensão, sem serem incluídas nessa exportação. O aplicativo só recebe as miniaturas embutidas, nunca busca os links das fotos por conta própria.
+
+Referência técnica: [InstagramUnfollowers, David Arroyo](https://github.com/davidarroyo1234/InstagramUnfollowers). Implementação própria; sem código remoto nem funções de seguir/deixar de seguir. Testes: `node extension/live.test.mjs`.
+
+## Modo anterior — Fotos visíveis
+
 Extensão auxiliar independente, sem vínculo com invertexto ou Meta. Não é a extensão Não Seguidores e não lê os dados privados dela.
 
 ## Instalar localmente

@@ -1,8 +1,16 @@
 # Círculo
 
-## Coleta pela sessão aberta (experimental)
+## Coleta simples pela extensão 0.3 (experimental)
 
-O aplicativo também importa o JSON `circulo-session-v1` gerado por `session-collector.js`, executado manualmente na própria aba conectada do Instagram. A opção **Coletar pela sessão aberta** oferece o arquivo e o [guia de uso](COLETA-NAVEGADOR.md). Sem extensão, dependências novas ou login pela biblioteca Android.
+Abra o Instagram conectado → extensão **Círculo · Conexões e fotos** → **Coletar conexões e fotos** → **Iniciar coleta**. O painel identifica a conta, confere as listas e busca as fotos em uma aba própria. **Baixar para o Círculo** gera um único arquivo para importar no campo normal do aplicativo. Não exige Console nem rolagem manual.
+
+Fotos são guardadas uma a uma no IndexedDB da extensão. A última consulta completa é preservada se a leitura das listas falhar; fotos restantes podem ser retomadas depois. Reimportar listas idênticas da mesma conta/data acrescenta fotos sem duplicar a consulta nem apagar categorias. Para atualizar uma foto já existente no aplicativo, remova-a antes de reimportar.
+
+Quem já instalou precisa recarregar a extensão uma vez; não há novas permissões. Instruções e limites em [extension/LEIA-ME.md](extension/LEIA-ME.md). A coleta integrada usa recursos internos, pode ser limitada pelo Instagram e ainda exige validação real. Os testes usam sessões simuladas. O modo anterior de fotos visíveis continua disponível como alternativa.
+
+## Coletor manual pela sessão (alternativa técnica)
+
+O aplicativo também importa o JSON `circulo-session-v1` gerado por `session-collector.js`, executado manualmente na própria aba conectada do Instagram. O arquivo e o [guia de uso](COLETA-NAVEGADOR.md) permanecem no repositório como alternativa técnica. Sem extensão, dependências novas ou login pela biblioteca Android.
 
 As duas listas precisam terminar e corresponder aos totais antes/depois da leitura. Erros, cursores repetidos e resultados parciais não geram consulta. A importação salva consulta e metadados numa única transação e preserva fotos/categorias anteriores. Nomes completos e selos coletados aparecem no perfil; os IDs são guardados, mas a comparação continua por nome de usuário. Links temporários das fotos ficam no JSON, sem download automático de imagens. O coletor usa recursos internos do Instagram e pode ser recusado ou limitado.
 

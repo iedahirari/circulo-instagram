@@ -41,6 +41,11 @@ export function validateProfile(p) {
   }
   return {id:profileKey(p.account,p.username),account:p.account,username:p.username,category:p.category,categorySource,photo:p.photo,...metadata};
 }
+export function mergeCollectedProfile(incoming,saved){
+  const profile=validateProfile(incoming);
+  if(saved&&validateProfile(saved).id!==profile.id)throw Error('O perfil salvo pertence a outra conta.');
+  return validateProfile({...profile,...saved,photo:saved?.photo||profile.photo,instagramId:profile.instagramId,fullName:profile.fullName,isVerified:profile.isVerified,isPrivate:profile.isPrivate});
+}
 export function parseSession(data) {
   if(data.complete!==true||typeof data.capturedAt!=='string'||!Number.isFinite(Date.parse(data.capturedAt)))throw Error('Coleta incompleta ou data inválida.');
   const parsed={account:data.account,capturedAt:data.capturedAt,profiles:[]};
@@ -50,7 +55,7 @@ export function parseSession(data) {
     if(!Array.isArray(rows)||rows.length>20000||rows.length!==data.counts?.[kind]||new Set(rows.map(u=>u?.id)).size!==rows.length)throw Error('Totais da coleta não conferem.');
     parsed[kind]=rows.map(u=>{
       if(typeof u?.id!=='string')throw Error('Perfil sem identificação na coleta.');
-      const p=validateProfile({account:data.account,username:u?.username,instagramId:u?.id,fullName:u?.fullName,isVerified:u?.isVerified,isPrivate:u?.isPrivate,photo:null,category:'review',categorySource:'unclassified'});
+      const p=validateProfile({account:data.account,username:u?.username,instagramId:u?.id,fullName:u?.fullName,isVerified:u?.isVerified,isPrivate:u?.isPrivate,photo:u?.photo===undefined?null:u.photo,category:'review',categorySource:'unclassified'});
       if(byName.has(p.username)&&byName.get(p.username)!==p.instagramId||byId.has(p.instagramId)&&byId.get(p.instagramId)!==p.username)throw Error('Identidades conflitantes na coleta.');
       byName.set(p.username,p.instagramId);byId.set(p.instagramId,p.username);
       parsed.profiles.push(p);return p.username;
@@ -82,6 +87,10 @@ export function validateSnapshot(s) {
   }
   if (typeof s.id!=='string' || s.id.length>100 || typeof s.source!=='string' || s.source.length>300) throw Error('Consulta inválida no backup.');
   return {id:s.id, account:s.account, date:s.date, source:s.source, followers:[...s.followers].sort(), following:s.following===null ? null : [...s.following].sort()};
+}
+export function sameSnapshotLists(a,b){
+  const first=validateSnapshot(a),second=validateSnapshot(b);
+  return first.account===second.account&&first.date===second.date&&JSON.stringify(first.followers)===JSON.stringify(second.followers)&&JSON.stringify(first.following)===JSON.stringify(second.following);
 }
 // shortcut: ZIP clássico com arquivos JSON e compressão stored/deflate; ampliar se o Instagram passar a usar ZIP64.
 export async function readZip(buffer) {

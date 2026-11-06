@@ -35,7 +35,8 @@ jobs:
         run: |
           node test.mjs
           node extension/test.mjs
+          node extension/live.test.mjs
           node test_session.cjs
           node test_session_import.mjs
       - name: Testar coletor e login com dados fictícios
-        run: python -m unittest test_coletor test_login_local -v
+        run: python -m unittest test_coletor test_login_local test_extension_flow -v

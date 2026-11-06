@@ -1,4 +1,5 @@
-import {collectVisibleProfiles,allowedPhotoUrl} from './collector.mjs';
+import {collectVisibleProfiles} from './collector.mjs';
+import {thumbnail} from './photos.mjs';
 import {CACHE_PREFIX,CACHE_LIMIT,ACCOUNT_LIMIT,cacheKey,readAccountCache,makePhotoExport} from './cache.mjs';
 const $=id=>document.getElementById(id);
 let entries={}, visible=[], busy=false, clearArmed=false, ready=false;
@@ -12,21 +13,6 @@ function update(){
   $('capture').disabled=busy||!ready;$('account').disabled=busy;$('clear').disabled=busy;
 }
 function disarmClear(){clearArmed=false;$('clear').textContent='Limpar capturas desta conta';}
-async function thumbnail(url) {
-  if(!allowedPhotoUrl(url))throw Error('Origem de imagem não permitida.');
-  const response=await fetch(url,{credentials:'omit',redirect:'error',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(12000)});
-  if(!response.ok || !/^image\/(jpeg|png|webp)(;|$)/i.test(response.headers.get('content-type')||''))throw Error('Foto indisponível.');
-  const reader=response.body.getReader();const chunks=[];let length=0;
-  while(true){const {done,value}=await reader.read();if(done)break;length+=value.length;if(length>5*1024*1024){await reader.cancel();throw Error('Foto muito grande.');}chunks.push(value);}
-  const bitmap=await createImageBitmap(new Blob(chunks));
-  try{
-    if(bitmap.width*bitmap.height>40000000)throw Error('Resolução muito alta.');
-    const canvas=document.createElement('canvas');canvas.width=128;canvas.height=128;
-    const ctx=canvas.getContext('2d'), side=Math.min(bitmap.width,bitmap.height);
-    ctx.fillStyle='white';ctx.fillRect(0,0,128,128);ctx.drawImage(bitmap,(bitmap.width-side)/2,(bitmap.height-side)/2,side,side,0,0,128,128);
-    return canvas.toDataURL('image/jpeg',0.85);
-  }finally{bitmap.close();}
-}
 $('account').addEventListener('input',()=>{visible=[];disarmClear();update();});
 $('capture-form').addEventListener('submit',async event=>{
   event.preventDefault();if(busy||!ready)return;
@@ -89,3 +75,5 @@ try{
   ready=true;update();
   if(readAccountCache(entries,account()).length)status('Suas fotos guardadas estão disponíveis. Abra a lista no Instagram e capture para continuar.');
 }catch(error){$('capture').disabled=true;status('Não foi possível abrir as capturas guardadas. Abra este painel pela extensão instalada no Chrome e confira se ela está atualizada.',true);}
+
+$('collect-all').addEventListener('click',async()=>{const [tab]=await chrome.tabs.query({active:true,currentWindow:true});await chrome.tabs.create({url:chrome.runtime.getURL('collection.html')+'?tab='+encodeURIComponent(tab?.id||'')});});
