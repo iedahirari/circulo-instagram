@@ -26,6 +26,14 @@ Os dados são guardados no IndexedDB do navegador. Limpar os dados do site, usar
 
 Nenhum arquivo é enviado para a internet. O servidor atende somente arquivos do aplicativo e escuta apenas no computador local. Abrir um link de perfil navega ao Instagram.
 
+## Análises e listas
+
+- **Renomeados:** quando a consulta traz identificadores numéricos (coleta pela sessão, ou perfis já coletados antes), uma troca de nome não aparece como saída nem entrada, e sim na aba **Renomeados**. A exportação oficial não traz IDs, então não detecta renomeações sozinha.
+- **Situação:** saídas indicam **voltou depois** quando o perfil reaparece em consulta posterior; entradas indicam **voltou a seguir** quando já apareceram em consulta anterior. Usa apenas o histórico salvo.
+- **Ignorados:** botão **Ignorar** na aba Não seguem de volta. Ficam ocultos até marcar **Mostrar perfis ignorados**. A marcação fica no navegador e no backup, mas não acompanha mudança de nome.
+- **Ordenar e paginar:** escolha A–Z, Z–A ou categoria, e quantos perfis mostrar por página (10, 50, 100 ou todos).
+- **Exportar CSV:** exporta a lista visível, com as mesmas busca, filtros e ordenação. O separador é `;`, para abrir direto no Excel em português. Células que começam com `=`, `+`, `-` ou `@` são gravadas como texto, para evitar fórmulas.
+
 ## Limites
 
 Ausência na nova exportação não comprova unfollow: mudança de nome, bloqueio ou desativação pode produzir o mesmo resultado. Os arquivos não trazem identificador estável nem selo de verificação. O aplicativo compara nomes de usuário, não se conecta à conta e não monitora automaticamente.
