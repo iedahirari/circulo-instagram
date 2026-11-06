@@ -36,13 +36,14 @@ function analyze(s){
   const prev=previous(s), result=compare(s,prev,idsFor(s.account,s,prev)), statuses=classify(s,prev,result,snapshots);
   return {prev,result,...statuses};
 }
+function officialDate(timestamp){return new Intl.DateTimeFormat('pt-BR',{timeZone:'UTC'}).format(new Date(timestamp*1000));}
 function statusText(row){
   if(row.status==='renamed')return 'Renomeado · antes @'+row.from;
-  if(row.status==='returned' && row.kind==='lost')return 'Saiu · voltou depois';
-  if(row.status==='returned' && row.kind==='gained')return 'Voltou a seguir';
-  if(row.kind==='lost')return 'Saiu';
-  if(row.kind==='gained')return 'Nova conexão';
-  return '';
+  const parts=[];
+  if(row.kind==='lost')parts.push(row.status==='returned'?'Saiu · voltou depois':'Saiu');
+  if(row.kind==='gained')parts.push(row.status==='returned'?'Voltou a seguir':'Nova conexão');
+  if(row.officialAt)parts.push('confirmado pelo Instagram em '+officialDate(row.officialAt));
+  return parts.join(' · ');
 }
 // Linhas da lista atual, já com busca, categoria e ignorados aplicados. null quando a lista não existe.
 function rowsFor(s,view){
@@ -54,7 +55,8 @@ function rowsFor(s,view){
   }else{
     if(!result[filter])return null;
     const statusMap=filter==='lost'?view.lostStatus:filter==='gained'?view.gainedStatus:null;
-    rows=result[filter].filter(n=>n.includes(query)).map(name=>({name,kind:filter,status:statusMap?.get(name)}));
+    const officialAt=new Map((s.recentUnfollows||[]).map(r=>[r.username,r.timestamp]));
+    rows=result[filter].filter(n=>n.includes(query)).map(name=>({name,kind:filter,status:statusMap?.get(name),officialAt:filter==='lost'?officialAt.get(name):undefined}));
   }
   rows=rows.map(r=>({...r,profile:profiles.get(profileKey(s.account,r.name))}));
   if(filter==='nonmutual'){
@@ -145,8 +147,8 @@ $('export-csv').addEventListener('click',()=>{
     const s=current();if(!s)throw Error('Selecione uma consulta para exportar.');
     const visible=visibleList(s,analyze(s));if(!visible)throw Error('Esta lista ainda não está disponível.');
     if(!visible.list.length)throw Error('Não há perfis nesta lista para exportar.');
-    const rows=[['usuario','perfil','lista','situacao','categoria','ignorado','verificado','nome_completo','nome_anterior']];
-    for(const r of visible.list)rows.push([r.name,'https://www.instagram.com/'+r.name+'/',FILTER_LABELS[filter],statusText(r),categories[r.profile?.category||'review'],r.profile?.ignored?'sim':'não',r.profile?.isVerified?'sim':'não',r.profile?.fullName||'',r.from||'']);
+    const rows=[['usuario','perfil','lista','situacao','categoria','ignorado','verificado','nome_completo','nome_anterior','confirmado_instagram']];
+    for(const r of visible.list)rows.push([r.name,'https://www.instagram.com/'+r.name+'/',FILTER_LABELS[filter],statusText(r),categories[r.profile?.category||'review'],r.profile?.ignored?'sim':'não',r.profile?.isVerified?'sim':'não',r.profile?.fullName||'',r.from||'',r.officialAt?officialDate(r.officialAt):'']);
     const url=URL.createObjectURL(new Blob([toCsv(rows)],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');
     a.href=url;a.download='circulo-'+filter+'-'+s.account+'-'+s.date+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     notify('CSV preparado com '+visible.list.length+' perfis. Ao abrir no Excel, confira se a coluna de nome não ficou cortada.');

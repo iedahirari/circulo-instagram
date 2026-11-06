@@ -120,6 +120,7 @@ export function validateSnapshot(s) {
   if (typeof s.id!=='string' || s.id.length>100 || typeof s.source!=='string' || s.source.length>300) throw Error('Consulta inválida no backup.');
   const snapshot={id:s.id, account:s.account, date:s.date, source:s.source, followers:[...s.followers].sort(), following:s.following===null ? null : [...s.following].sort()};
   if (s.followerIds!==undefined) snapshot.followerIds=validateIds(s.followerIds, snapshot.followers);
+  if (s.recentUnfollows!=null) snapshot.recentUnfollows=validateRecentUnfollows(s.recentUnfollows);
   if (s.followingIds!==undefined) {
     if (snapshot.following===null) throw Error('Identificadores de seguindo sem a lista correspondente.');
     snapshot.followingIds=validateIds(s.followingIds, snapshot.following);
@@ -133,6 +134,27 @@ function validateIds(ids, followers) {
   if (names.length>followers.length || names.some(n=>!allowed.has(n) || typeof ids[n]!=='string' || !/^\d{1,30}$/.test(ids[n]))) throw Error('Identificadores inválidos no backup.');
   return Object.fromEntries(names.sort().map(n=>[n,ids[n]]));
 }
+// Registro de saídas que o próprio Instagram guarda (recently_unfollowed_profiles.json).
+// Cada item tem timestamp em segundos e um campo de nome de usuário; o rótulo chega com codificação quebrada, por isso o prefixo.
+export function parseRecentUnfollows(items) {
+  if (!Array.isArray(items) || items.length>50000) throw Error('Lista de saídas recentes inválida.');
+  const byName=new Map();
+  for (const item of items) {
+    const field=item?.label_values?.find(lv=>typeof lv?.label==='string' && lv.label.startsWith('Nome de usu'));
+    const username=typeof field?.value==='string' ? field.value.toLowerCase() : '';
+    if (!/^[a-z0-9_.]{1,30}$/.test(username) || !Number.isFinite(item?.timestamp)) throw Error('Há um registro de saída inválido no arquivo.');
+    const seen=byName.get(username);
+    if (!seen || item.timestamp>seen.timestamp) byName.set(username,{username,timestamp:item.timestamp});
+  }
+  return [...byName.values()].sort((a,b)=>a.username.localeCompare(b.username));
+}
+function validateRecentUnfollows(items) {
+  if (!Array.isArray(items) || items.length>50000) throw Error('Saídas recentes inválidas no backup.');
+  return items.map(i=>{
+    if (!i || typeof i.username!=='string' || !/^[a-z0-9_.]{1,100}$/.test(i.username) || !Number.isFinite(i.timestamp)) throw Error('Saídas recentes inválidas no backup.');
+    return {username:i.username, timestamp:i.timestamp};
+  });
+}
 // shortcut: ZIP clássico com arquivos JSON e compressão stored/deflate; ampliar se o Instagram passar a usar ZIP64.
 export async function readZip(buffer) {
   const view=new DataView(buffer), bytes=new Uint8Array(buffer), decoder=new TextDecoder();
@@ -145,7 +167,7 @@ export async function readZip(buffer) {
     if(cursor+46>bytes.length || view.getUint32(cursor,true)!==0x02014b50) throw Error('Não foi possível ler este ZIP.');
     const flags=view.getUint16(cursor+8,true), method=view.getUint16(cursor+10,true), compressed=view.getUint32(cursor+20,true), size=view.getUint32(cursor+24,true), len=view.getUint16(cursor+28,true), extra=view.getUint16(cursor+30,true), comment=view.getUint16(cursor+32,true), offset=view.getUint32(cursor+42,true);
     const path=decoder.decode(bytes.subarray(cursor+46,cursor+46+len)); cursor+=46+len+extra+comment;
-    if(!/(?:^|\/)followers(?:_\d+)?\.json$|(?:^|\/)following\.json$/.test(path)) continue;
+    if(!/(?:^|\/)followers(?:_\d+)?\.json$|(?:^|\/)following\.json$|(?:^|\/)recently_unfollowed_profiles\.json$/.test(path)) continue;
     expanded+=size;
     if(flags&1 || size>30000000 || expanded>60000000 || offset+30>bytes.length) throw Error('ZIP protegido, muito grande ou incompatível.');
     if(view.getUint32(offset,true)!==0x04034b50) throw Error('Entrada ZIP inválida.');
@@ -179,5 +201,8 @@ export async function parseExport(file) {
   if(numbered.some((n,i)=>n!==i+1)) throw Error('Faltam partes da lista de seguidores. Importe o ZIP completo.');
   const followers=[...new Set(followerFiles.flatMap(f=>names(f.data)))].sort();
   const followingFile=files.find(f=>f.path===[...folders][0]+'following.json');
-  return {followers,following:followingFile ? names(followingFile.data.relationships_following,true) : null};
+  const unfollowedFile=files.find(f=>f.path===[...folders][0]+'recently_unfollowed_profiles.json');
+  const result={followers,following:followingFile ? names(followingFile.data.relationships_following,true) : null};
+  if(unfollowedFile)result.recentUnfollows=parseRecentUnfollows(unfollowedFile.data);
+  return result;
 }

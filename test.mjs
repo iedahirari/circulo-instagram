@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {names,compare,classify,csvCell,toCsv,validateSnapshot,parseExport,validateProfile,profileKey,mergePhotoImport,makePhotoQueue} from './core.mjs';
+import {names,compare,classify,csvCell,toCsv,parseRecentUnfollows,validateSnapshot,parseExport,validateProfile,profileKey,mergePhotoImport,makePhotoQueue} from './core.mjs';
 assert.deepEqual(names([{string_list_data:[{value:'Alice'}]},{string_list_data:[{value:'alice'}]}]),['alice']);
 assert.throws(()=>names([{string_list_data:[{value:'<script>'}]}]));
 assert.deepEqual(compare({followers:['b','c'],following:['a','b']},{followers:['a','b']}),{followers:['b','c'],lost:['a'],gained:['c'],renamed:[],nonmutual:['a']});
@@ -93,4 +93,17 @@ const sessionFile=new File([JSON.stringify({format:'circulo-session-v1',account:
 const session=await parseExport(sessionFile);
 assert.deepEqual(session.followerIds,{alice:'123'});
 assert.deepEqual(session.followers,['alice']);
+// Saídas que o Instagram registra: rótulo com codificação quebrada, timestamp em segundos, último registro vence.
+const unf=parseRecentUnfollows([
+  {timestamp:1762000000,label_values:[{label:'Nome de usuÃ¡rio',value:'Old_User'},{label:'URL',value:'https://x'}]},
+  {timestamp:1762500000,label_values:[{label:'Nome de usuÃ¡rio',value:'old_user'}]},
+  {timestamp:1761000000,label_values:[{label:'Nome de usuÃ¡rio',value:'other'}]}
+]);
+assert.deepEqual(unf,[{username:'old_user',timestamp:1762500000},{username:'other',timestamp:1761000000}]);
+assert.throws(()=>parseRecentUnfollows([{timestamp:1,label_values:[{label:'Nome de usuÃ¡rio',value:'bad name'}]}]));
+assert.throws(()=>parseRecentUnfollows([{timestamp:'x',label_values:[{label:'Nome de usuÃ¡rio',value:'ok'}]}]));
+assert.throws(()=>parseRecentUnfollows([{timestamp:1,label_values:[{label:'URL',value:'ok'}]}]));
+assert.deepEqual(validateSnapshot({...valid,recentUnfollows:unf}).recentUnfollows,unf);
+assert.equal(validateSnapshot({...valid,recentUnfollows:null}).recentUnfollows,undefined);
+assert.throws(()=>validateSnapshot({...valid,recentUnfollows:[{username:'x y',timestamp:1}]}));
 console.log('Verificações passaram.');

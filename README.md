@@ -30,6 +30,7 @@ Nenhum arquivo é enviado para a internet. O servidor atende somente arquivos do
 
 - **Renomeados:** quando a consulta traz identificadores numéricos (coleta pela sessão, ou perfis já coletados antes), uma troca de nome não aparece como saída nem entrada, e sim na aba **Renomeados**. A exportação oficial não traz IDs, então não detecta renomeações sozinha.
 - **Situação:** saídas indicam **voltou depois** quando o perfil reaparece em consulta posterior; entradas indicam **voltou a seguir** quando já apareceram em consulta anterior. Usa apenas o histórico salvo.
+- **Confirmadas pelo Instagram:** o ZIP oficial traz `recently_unfollowed_profiles.json`, com as saídas que o próprio Instagram registrou. Na aba **Saíram**, cada uma dessas aparece com a data do registro. Cobre só o período recente que o Instagram mantém.
 - **Ignorados:** botão **Ignorar** na aba Não seguem de volta. Ficam ocultos até marcar **Mostrar perfis ignorados**. A marcação fica no navegador e no backup, mas não acompanha mudança de nome.
 - **Ordenar e paginar:** escolha A–Z, Z–A ou categoria, e quantos perfis mostrar por página (10, 50, 100 ou todos).
 - **Exportar CSV:** exporta a lista visível, com as mesmas busca, filtros e ordenação. O separador é `;`, para abrir direto no Excel em português. Células que começam com `=`, `+`, `-` ou `@` são gravadas como texto, para evitar fórmulas.
