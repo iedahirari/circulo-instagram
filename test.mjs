@@ -79,6 +79,15 @@ assert.equal(validateSnapshot(valid).followerIds,undefined);
 assert.throws(()=>validateSnapshot({...withIds,followerIds:{c:'12'}}));
 assert.throws(()=>validateSnapshot({...withIds,followerIds:{a:'x1'}}));
 assert.throws(()=>validateSnapshot({...withIds,followerIds:['10']}));
+// Não segue de volta por ID: nome diferente entre as listas, mesmo ID, continua mútuo.
+const mutualById=compare({followers:['ann','novo'],following:['ann','velho'],followerIds:{ann:'1',novo:'7'}},{followers:['ann']},new Map([['velho','7']]));
+assert.deepEqual(mutualById.nonmutual,[]);
+const oneWay=compare({followers:['ann'],following:['ann','solo'],followerIds:{ann:'1'},followingIds:{solo:'8'}},{followers:['ann']},new Map());
+assert.deepEqual(oneWay.nonmutual,['solo']);
+const validIds={id:'3',account:'ieda',date:'2026-11-04',source:'s.json',followers:['a'],following:['a','b'],followerIds:{a:'10'},followingIds:{a:'10',b:'11'}};
+assert.deepEqual(validateSnapshot(validIds).followingIds,{a:'10',b:'11'});
+assert.throws(()=>validateSnapshot({...validIds,followingIds:{z:'1'}}));
+assert.throws(()=>validateSnapshot({...validIds,following:null}));
 // Coleta de sessão: a leitura guarda o ID de cada seguidor.
 const sessionFile=new File([JSON.stringify({format:'circulo-session-v1',account:'ieda',capturedAt:'2026-11-05T10:00:00Z',complete:true,counts:{followers:1,following:0},followers:[{id:'123',username:'alice',fullName:'Alice',isVerified:false}],following:[]})],'session.json');
 const session=await parseExport(sessionFile);

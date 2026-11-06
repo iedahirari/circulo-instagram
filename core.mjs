@@ -26,8 +26,16 @@ export function compare(current, previous, ids=new Map()) {
     lost=lost.filter(n=>!usedLost.has(n));
     gained=gained.filter(n=>!usedGained.has(n));
   }
-  return {followers:current.followers, lost, gained, renamed,
-    nonmutual:current.following ? current.following.filter(n=>!now.has(n)) : null};
+  // Quem você segue conta como mútuo se o nome estiver entre os seguidores OU se o ID dele for de um seguidor.
+  // Assim, uma troca de nome entre as duas listas não gera falso "não segue de volta".
+  const followerIdSet=new Set(Object.values(current.followerIds || {}));
+  const idOf=n=>ids.get(n) || current.followingIds?.[n];
+  const nonmutual=current.following ? current.following.filter(n=>{
+    if(now.has(n))return false;
+    const id=idOf(n);
+    return !(id && followerIdSet.has(id));
+  }) : null;
+  return {followers:current.followers, lost, gained, renamed, nonmutual};
 }
 // Situação de cada saída e entrada usando apenas o histórico já salvo da mesma conta.
 // 'returned' em saídas: o perfil reaparece em consulta posterior. Em entradas: já apareceu antes da consulta anterior.
@@ -71,7 +79,7 @@ export function validateProfile(p) {
 export function parseSession(data) {
   if(data.complete!==true||typeof data.capturedAt!=='string'||!Number.isFinite(Date.parse(data.capturedAt)))throw Error('Coleta incompleta ou data inválida.');
   const parsed={account:data.account,capturedAt:data.capturedAt,profiles:[]};
-  const byName=new Map(), byId=new Map(), followerIds={};
+  const byName=new Map(), byId=new Map(), followerIds={}, followingIds={};
   for(const kind of ['followers','following']){
     const rows=data[kind];
     if(!Array.isArray(rows)||rows.length>20000||rows.length!==data.counts?.[kind]||new Set(rows.map(u=>u?.id)).size!==rows.length)throw Error('Totais da coleta não conferem.');
@@ -80,11 +88,12 @@ export function parseSession(data) {
       const p=validateProfile({account:data.account,username:u?.username,instagramId:u?.id,fullName:u?.fullName,isVerified:u?.isVerified,photo:null,category:'review',categorySource:'unclassified'});
       if(byName.has(p.username)&&byName.get(p.username)!==p.instagramId||byId.has(p.instagramId)&&byId.get(p.instagramId)!==p.username)throw Error('Identidades conflitantes na coleta.');
       byName.set(p.username,p.instagramId);byId.set(p.instagramId,p.username);
-      parsed.profiles.push(p);if(kind==='followers')followerIds[p.username]=p.instagramId;return p.username;
+      parsed.profiles.push(p);if(kind==='followers')followerIds[p.username]=p.instagramId;else followingIds[p.username]=p.instagramId;return p.username;
     });
     if(new Set(parsed[kind]).size!==rows.length)throw Error('Perfis repetidos na coleta.');
   }
   parsed.followerIds=followerIds;
+  parsed.followingIds=followingIds;
   parsed.profiles=[...new Map(parsed.profiles.map(p=>[p.id,p])).values()];
   return parsed;
 }
@@ -111,6 +120,10 @@ export function validateSnapshot(s) {
   if (typeof s.id!=='string' || s.id.length>100 || typeof s.source!=='string' || s.source.length>300) throw Error('Consulta inválida no backup.');
   const snapshot={id:s.id, account:s.account, date:s.date, source:s.source, followers:[...s.followers].sort(), following:s.following===null ? null : [...s.following].sort()};
   if (s.followerIds!==undefined) snapshot.followerIds=validateIds(s.followerIds, snapshot.followers);
+  if (s.followingIds!==undefined) {
+    if (snapshot.following===null) throw Error('Identificadores de seguindo sem a lista correspondente.');
+    snapshot.followingIds=validateIds(s.followingIds, snapshot.following);
+  }
   return snapshot;
 }
 function validateIds(ids, followers) {

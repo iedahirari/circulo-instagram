@@ -26,7 +26,10 @@ function empty(title,text){const div=document.createElement('div');div.className
 function idsFor(account,current,prior){
   const ids=new Map();
   for(const p of profiles.values())if(p.account===account && p.instagramId)ids.set(p.username,p.instagramId);
-  for(const s of [prior,current])if(s?.followerIds)for(const [name,id] of Object.entries(s.followerIds))ids.set(name,id);
+  for(const s of [prior,current]){
+    if(s?.followerIds)for(const [name,id] of Object.entries(s.followerIds))ids.set(name,id);
+    if(s?.followingIds)for(const [name,id] of Object.entries(s.followingIds))ids.set(name,id);
+  }
   return ids;
 }
 function analyze(s){
