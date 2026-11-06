@@ -1,4 +1,4 @@
-import {parseExport,compare,validateSnapshot,categories,profileKey,validateProfile,mergePhotoImport,makePhotoQueue} from './core.mjs';
+import {parseExport,compare,validateSnapshot,categories,profileKey,validateProfile,mergePhotoImport,makePhotoQueue,matchesProfile} from './core.mjs';
 const $=id=>document.getElementById(id);
 let snapshots=[], pending=null, filter='followers', limit=50, db, reading=false, profiles=new Map(), photoTarget=null;
 function notify(text,error=false){$('notice').textContent=text;$('notice').classList.toggle('error',error);$('notice').hidden=false;}
@@ -8,7 +8,7 @@ function previous(s){return snapshots.filter(x=>x.account===s.account && x.date<
 function stored(mode,action,storeName='snapshots'){return new Promise((resolve,reject)=>{const tx=db.transaction(storeName,mode);let request;try{request=action(tx.objectStore(storeName));}catch(e){tx.abort();reject(e);return;}tx.oncomplete=()=>resolve(request?.result);tx.onerror=()=>reject(Error('Não foi possível salvar o histórico. Baixe um backup e confira o espaço do navegador.'));tx.onabort=()=>reject(Error('Operação cancelada. Seu histórico anterior foi preservado.'));});}
 
 function saveConsultation(snapshot,incoming){
-  const merged=incoming.map(p=>{const saved=profiles.get(p.id);return validateProfile({...p,...saved,instagramId:p.instagramId,fullName:p.fullName,isVerified:p.isVerified});});
+  const merged=incoming.map(p=>{const saved=profiles.get(p.id);return validateProfile({...p,...saved,instagramId:p.instagramId,fullName:p.fullName,isVerified:p.isVerified,isPrivate:p.isPrivate});});
   return new Promise((resolve,reject)=>{
     const tx=db.transaction(['snapshots','profiles'],'readwrite');
     tx.objectStore('snapshots').add(snapshot);
@@ -20,11 +20,17 @@ function saveConsultation(snapshot,incoming){
 
 async function reload(selected=$('history').value){profiles=new Map((await stored('readonly',s=>s.getAll(),'profiles')).map(p=>[p.id,p]));snapshots=await stored('readonly',s=>s.getAll());snapshots.sort((a,b)=>b.date.localeCompare(a.date)||a.account.localeCompare(b.account));$('history').replaceChildren();for(const s of snapshots){const option=new Option('@'+s.account+' · '+dateLabel(s.date)+' · '+s.followers.length+' seguidores',s.id);$('history').add(option);}if(!snapshots.length)$('history').add(new Option('Nenhuma consulta salva',''));if(snapshots.some(s=>s.id===selected))$('history').value=selected;$('history').disabled=!snapshots.length;$('export').disabled=!snapshots.length;render();}
 function empty(title,text){const div=document.createElement('div');div.className='empty';const icon=document.createElement('span');icon.textContent='◎';icon.setAttribute('aria-hidden','true');const h=document.createElement('h3');h.textContent=title;const p=document.createElement('p');p.textContent=text;div.append(icon,h,p);$('list').replaceChildren(div);$('more').hidden=true;}
+function matchingNames(snapshot,names){
+  return names.filter(name=>{
+    const profile=profiles.get(profileKey(snapshot.account,name));
+    return matchesProfile(name,profile,$('search').value,$('verification-filter').value,$('privacy-filter').value) && (filter!=='nonmutual'||$('category-filter').value==='all'||(profile?.category||'review')===$('category-filter').value);
+  });
+}
 function render(){const s=current();$('photo-coverage').textContent='';$('category-tools').hidden=filter!=='nonmutual';$('prepare-local').disabled=!s;if(!s){empty('Seu círculo começa aqui.','Importe seu primeiro arquivo para ver seus seguidores.');return;}const prev=previous(s), result=compare(s,prev);if(result.nonmutual){for(const option of $('category-filter').options){const count=option.value==='all'?result.nonmutual.length:result.nonmutual.filter(n=>(profiles.get(profileKey(s.account,n))?.category||'review')===option.value).length;option.textContent=(option.value==='all'?'Todas as categorias':categories[option.value])+' ('+count+')';}}$('total').textContent=s.followers.length.toLocaleString('pt-BR');$('gained').textContent=prev ? '+'+result.gained.length : '—';$('lost').textContent=prev ? result.lost.length : '—';$('state').textContent=prev?'Comparação disponível':'Base inicial salva';$('comparison').textContent=prev?'Comparando '+dateLabel(prev.date)+' → '+dateLabel(s.date)+' · @'+s.account:'Base inicial de @'+s.account+'. Importe uma exportação mais recente para comparar.';
   for(const b of $('filters').querySelectorAll('button'))b.setAttribute('aria-pressed',String(b.dataset.filter===filter));
   if(result[filter]===null){$('count').textContent='Indisponível';empty(filter==='nonmutual'?'Falta a lista de quem você segue.':'Ainda não há uma consulta anterior.',filter==='nonmutual'?'Importe o ZIP com seguidores e seguindo. Sua lista de seguidores está disponível.':'A primeira consulta é sua referência. Na próxima, mostraremos as mudanças.');return;}
-  const query=$('search').value.toLowerCase().replace(/^@/,''), matching=result[filter].filter(n=>n.includes(query) && (filter!=='nonmutual' || $('category-filter').value==='all' || (profiles.get(profileKey(s.account,n))?.category || 'review')===$('category-filter').value));const photoCount=matching.filter(n=>profiles.get(profileKey(s.account,n))?.photo).length;$('photo-coverage').textContent='Fotos: '+photoCount+' de '+matching.length+' nesta lista';const list=$('without-photo').checked?matching.filter(n=>!profiles.get(profileKey(s.account,n))?.photo):matching;$('count').textContent=list.length.toLocaleString('pt-BR')+' perfis';
-  if(!list.length){empty(query?'Nenhum perfil encontrado.':$('without-photo').checked&&matching.length?'Todos os perfis desta seleção têm foto.':'Nenhum perfil nesta lista.',query?'Tente outro nome de usuário.':'Não há perfis nesta categoria para as consultas selecionadas.');return;}
+  const query=$('search').value.toLowerCase().replace(/^@/,''), matching=matchingNames(s,result[filter]);const photoCount=matching.filter(n=>profiles.get(profileKey(s.account,n))?.photo).length;$('photo-coverage').textContent='Fotos: '+photoCount+' de '+matching.length+' nesta lista';const list=$('without-photo').checked?matching.filter(n=>!profiles.get(profileKey(s.account,n))?.photo):matching;$('count').textContent=list.length.toLocaleString('pt-BR')+' perfis';
+  if(!list.length){empty(query?'Nenhum perfil encontrado.':$('without-photo').checked&&matching.length?'Todos os perfis desta seleção têm foto.':'Nenhum perfil nesta lista.',query?'Tente outro nome de usuário.':'Nenhum perfil corresponde aos filtros selecionados.');return;}
   const fragment=document.createDocumentFragment();
   for(const name of list.slice(0,limit)) {
     const key=profileKey(s.account,name), profile=profiles.get(key);
@@ -38,7 +44,8 @@ function render(){const s=current();$('photo-coverage').textContent='';$('catego
     const link=document.createElement('a');link.textContent='@'+name;link.href='https://www.instagram.com/'+encodeURIComponent(name)+'/';link.target='_blank';link.rel='noopener noreferrer';link.setAttribute('aria-label','Abrir perfil @'+name+' no Instagram, em nova aba');
     const arrow=document.createElement('span');arrow.textContent='↗';arrow.setAttribute('aria-hidden','true');link.append(arrow);
     if(profile?.isVerified){const seal=document.createElement('span');seal.textContent=' ✓';seal.title='Selo de verificação informado na coleta';link.append(seal);}
-    if(profile?.fullName)link.title=profile.fullName;
+    if(profile?.fullName){const fullName=document.createElement('small');fullName.className='profile-name';fullName.textContent=profile.fullName;link.append(fullName);}
+    if(profile?.isPrivate!==undefined){const privacy=document.createElement('small');privacy.className='profile-name';privacy.textContent=profile.isPrivate?'Conta privada':'Conta pública';link.append(privacy);}
     row.append(avatar,link);
     if(profile?.photo){const remove=document.createElement('button');remove.className='remove-photo';remove.textContent='Remover foto';remove.setAttribute('aria-label','Remover foto de referência de @'+name);remove.addEventListener('click',async()=>{remove.disabled=true;try{await saveProfile(s.account,name,{photo:null});notify('Foto de referência removida.');}catch(e){notify(e.message,true);remove.disabled=false;}});row.append(remove);}
     if(filter==='nonmutual'){
@@ -63,8 +70,7 @@ $('prepare-local').addEventListener('click',()=>{
   try{
     const selected=current();if(!selected)throw Error('Selecione uma consulta para preparar a coleta.');
     const result=compare(selected,previous(selected));if(result[filter]===null)throw Error('Esta lista ainda não está disponível.');
-    const search=$('search').value.toLowerCase().replace(/^@/,'');
-    const names=result[filter].filter(name=>name.includes(search)&&(filter!=='nonmutual'||$('category-filter').value==='all'||(profiles.get(profileKey(selected.account,name))?.category||'review')===$('category-filter').value));
+    const names=matchingNames(selected,result[filter]);
     const prepared=makePhotoQueue(selected.account,names,profiles);
     if(!prepared.queue.users.length)throw Error('Não há perfis sem foto com identificador válido nesta seleção.');
     const url=URL.createObjectURL(new Blob([JSON.stringify(prepared.queue)],{type:'application/json'}));
@@ -103,3 +109,5 @@ $('photo-file').addEventListener('change',async e=>{
   }catch(err){notify(err.name==='InvalidStateError'?'Não foi possível ler essa imagem. Tente outra foto.':err.message,true);}
 });
 try{db=await new Promise((resolve,reject)=>{const request=indexedDB.open('circulo-instagram',2);request.onupgradeneeded=()=>{for(const name of ['snapshots','profiles'])if(!request.result.objectStoreNames.contains(name))request.result.createObjectStore(name,{keyPath:'id'});};request.onsuccess=()=>{request.result.onversionchange=()=>{request.result.close();notify('Uma nova versão está disponível. Recarregue esta página.',true);};resolve(request.result);};request.onerror=()=>reject(Error('O navegador bloqueou o armazenamento. Abra no navegador normal e permita dados locais.'));request.onblocked=()=>reject(Error('Feche outras abas do Círculo e tente novamente.'));});await reload();}catch(e){notify(e.message,true);$('file').disabled=true;}
+
+for(const id of ['verification-filter','privacy-filter'])$(id).addEventListener('change',()=>{limit=50;render();});

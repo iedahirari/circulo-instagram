@@ -16,6 +16,12 @@ export function compare(current, previous) {
 }
 export const categories = {'review':'A revisar', 'personal':'Pessoal', 'artist':'Artista/figura pública', 'brand':'Marca/organização'};
 export function profileKey(account, username) { return JSON.stringify([account, username]); }
+export function matchesProfile(username, profile, query='', verification='all', privacy='all') {
+  const normalize=value=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const term=normalize(query.trim().replace(/^@/,''));
+  const matches=(value,choice)=>choice==='all'||choice==='unknown'&&value===undefined||choice==='yes'&&value===true||choice==='no'&&value===false;
+  return (normalize(username).includes(term)||normalize(profile?.fullName||'').includes(term)) && matches(profile?.isVerified,verification) && matches(profile?.isPrivate,privacy);
+}
 export function makePhotoQueue(account, usernames, profiles) {
   if(typeof account!=='string'||!/^[a-z0-9_.]{1,30}$/.test(account)||!Array.isArray(usernames))throw Error('Selecione uma consulta válida antes de preparar a coleta.');
   const missing=[...new Set(usernames)].filter(name=>!profiles.get(profileKey(account,name))?.photo);
@@ -29,8 +35,9 @@ export function validateProfile(p) {
   if(!['manual','suggestion','unclassified'].includes(categorySource))throw Error('Origem da categoria inválida.');
   const metadata={};
   if(p.instagramId!==undefined){
-    if(typeof p.instagramId!=='string'||!/^\d{1,30}$/.test(p.instagramId)||typeof p.fullName!=='string'||p.fullName.length>200||typeof p.isVerified!=='boolean')throw Error('Dados de perfil inválidos.');
-    Object.assign(metadata,{instagramId:p.instagramId,fullName:p.fullName,isVerified:p.isVerified});
+    if(typeof p.instagramId!=='string'||!/^\d{1,30}$/.test(p.instagramId)||typeof p.fullName!=='string'||p.fullName.length>200)throw Error('Dados de perfil inválidos.');
+    Object.assign(metadata,{instagramId:p.instagramId,fullName:p.fullName});
+    for(const flag of ['isVerified','isPrivate'])if(p[flag]!==undefined){if(typeof p[flag]!=='boolean')throw Error('Dados de perfil inválidos.');metadata[flag]=p[flag];}
   }
   return {id:profileKey(p.account,p.username),account:p.account,username:p.username,category:p.category,categorySource,photo:p.photo,...metadata};
 }
@@ -43,7 +50,7 @@ export function parseSession(data) {
     if(!Array.isArray(rows)||rows.length>20000||rows.length!==data.counts?.[kind]||new Set(rows.map(u=>u?.id)).size!==rows.length)throw Error('Totais da coleta não conferem.');
     parsed[kind]=rows.map(u=>{
       if(typeof u?.id!=='string')throw Error('Perfil sem identificação na coleta.');
-      const p=validateProfile({account:data.account,username:u?.username,instagramId:u?.id,fullName:u?.fullName,isVerified:u?.isVerified,photo:null,category:'review',categorySource:'unclassified'});
+      const p=validateProfile({account:data.account,username:u?.username,instagramId:u?.id,fullName:u?.fullName,isVerified:u?.isVerified,isPrivate:u?.isPrivate,photo:null,category:'review',categorySource:'unclassified'});
       if(byName.has(p.username)&&byName.get(p.username)!==p.instagramId||byId.has(p.instagramId)&&byId.get(p.instagramId)!==p.username)throw Error('Identidades conflitantes na coleta.');
       byName.set(p.username,p.instagramId);byId.set(p.instagramId,p.username);
       parsed.profiles.push(p);return p.username;

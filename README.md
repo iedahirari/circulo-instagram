@@ -8,6 +8,8 @@ As duas listas precisam terminar e corresponder aos totais antes/depois da leitu
 
 Referências e limites constam no guia. Testes adicionais: `node test_session.cjs` e `node test_session_import.mjs`. São testes simulados, sem acesso ao Instagram.
 
+Inspirado também em [InstagramUnfollowers, de David Arroyo](https://github.com/davidarroyo1234/InstagramUnfollowers): a lista mostra nomes completos e privacidade quando disponíveis, permite buscar nome com ou sem acentos e filtrar selo/privacidade. Os filtros combinam com as categorias e com a fila de fotos. Perfis sem dados coletados ficam em **Sem informação**, sem inferir que são públicos, sem selo ou desativados. Os dados exibidos são os últimos importados para cada perfil, não uma verificação ao vivo nem um histórico de selos. A sessão do coletor é conferida em cada requisição para evitar misturar contas. Implementação própria com referência registrada no guia; nenhuma dependência desse projeto foi adicionada.
+
 Um aplicativo local para acompanhar conexões do Instagram. HTML, CSS e JavaScript sem dependências externas. Importa ZIPs de exportações em JSON, compara seguidores, identifica novas conexões e mostra contas que não seguem de volta.
 
 ## Abrir

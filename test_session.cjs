@@ -1,9 +1,12 @@
 const assert = require('node:assert/strict');
-const {collectList} = require('./session-collector.js');
+const {collectList,assertSession} = require('./session-collector.js');
 const user = (id,username) => ({pk:id,username,full_name:username,is_verified:false});
 const signal = new AbortController().signal;
 const scan = (request,count=2) => collectList(request,'10','followers',count,signal,()=>{},async()=>{});
 (async()=>{
+  assert.doesNotThrow(()=>assertSession('other=x; ds_user_id=10','10'));
+  assert.throws(()=>assertSession('ds_user_id=11','10'),/mudou/);
+  assert.throws(()=>assertSession('other=x','10'),/mudou/);
   const calls=[];
   const rows=await scan(async path=>{calls.push(path);return calls.length===1?{users:[user(1,'alice')],next_max_id:'next'}:{users:[user(2,'bob')]};});
   assert.equal(rows.length,2);assert.match(calls[1],/max_id=next/);
@@ -14,5 +17,10 @@ const scan = (request,count=2) => collectList(request,'10','followers',count,sig
   const aborted=new AbortController();aborted.abort();
   await assert.rejects(collectList(()=>assert.fail('não deve consultar'),'10','followers',0,aborted.signal,()=>{},async()=>{}),/cancelada/);
   assert.deepEqual(await scan(async()=>({users:[]}),0),[]);
+  const flags=await scan(async()=>({users:[{...user(1,'alice'),is_private:true}]}),1);
+  assert.equal(flags[0].isPrivate,true);
+  const unknown=await scan(async()=>({users:[{pk:1,username:'alice'}]}),1);
+  assert.equal(unknown[0].isVerified,undefined);
+  assert.equal(unknown[0].isPrivate,undefined);
   console.log('Coletor: paginação, totais, cancelamento e falhas verificados.');
 })();

@@ -27,5 +27,6 @@ Os dados ficam no arquivo baixado e, depois da importação, no armazenamento do
 - [adrigo/unfollowers-for-instagram — src/api.ts](https://github.com/adrigo/unfollowers-for-instagram/blob/main/src/api.ts): formato das consultas web, paginação e campos de perfil.
 - [itzstebin/Whoisit](https://github.com/itzstebin/Whoisit): sessão na própria aba e recusa de exportação incompleta. Não adotamos a exigência de seguir o autor.
 - [Instaloader](https://github.com/instaloader/instaloader): alternativa avaliada; não adicionada como dependência e sem extração de sessão.
+- [davidarroyo1234/InstagramUnfollowers](https://github.com/davidarroyo1234/InstagramUnfollowers) (MIT, Copyright 2023 David Arroyo): referência para os filtros de verificação/privacidade e isolamento de resultados por conta. Nosso coletor verifica a conta conectada antes e depois de cada requisição; mudança ou encerramento da sessão descarta a consulta. Não reutilizamos as funções de deixar de seguir nem fazemos repetição automática após restrição.
 
 Implementação própria. Não executa pacotes ou scripts remotos desses repositórios. Conteúdo externo foi tratado como referência técnica.
