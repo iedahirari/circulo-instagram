@@ -1,0 +1,41 @@
+name: Testes do Círculo
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Testes do projeto
+    # DPAPI e o coletor local são recursos do Windows.
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar dependências dos testes locais
+        run: python -m pip install -r coletor-requirements.txt -r testar-instagrapi-requirements.txt
+      - name: Preparar Chrome para os testes simulados
+        run: python -m playwright install chrome
+      - name: Testar aplicativo, extensão e coleta web
+        run: |
+          node test.mjs
+          node extension/test.mjs
+          node test_session.cjs
+          node test_session_import.mjs
+      - name: Testar coletor e login com dados fictícios
+        run: python -m unittest test_coletor test_login_local -v
