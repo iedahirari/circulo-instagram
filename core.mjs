@@ -8,11 +8,52 @@ export function names(items, following=false) {
   }
   return [...result].sort();
 }
-export function compare(current, previous) {
+// ids: Map nome de usuário → ID numérico do Instagram (quando conhecido). Sem IDs, não há detecção de renomeados.
+export function compare(current, previous, ids=new Map()) {
   const now=new Set(current.followers), before=new Set(previous?.followers || []);
-  return {followers:current.followers, lost:previous ? [...before].filter(n=>!now.has(n)) : null,
-    gained:previous ? [...now].filter(n=>!before.has(n)) : null,
-    nonmutual:current.following ? current.following.filter(n=>!now.has(n)) : null};
+  let lost=previous ? [...before].filter(n=>!now.has(n)) : null;
+  let gained=previous ? [...now].filter(n=>!before.has(n)) : null;
+  let renamed=null;
+  if(previous){
+    renamed=[];
+    const gainedById=new Map();
+    for(const name of gained){const id=ids.get(name);if(id && !gainedById.has(id))gainedById.set(id,name);}
+    const usedLost=new Set(), usedGained=new Set();
+    for(const name of lost){
+      const id=ids.get(name), match=id ? gainedById.get(id) : undefined;
+      if(match && !usedGained.has(match)){renamed.push({from:name,to:match});usedLost.add(name);usedGained.add(match);}
+    }
+    lost=lost.filter(n=>!usedLost.has(n));
+    gained=gained.filter(n=>!usedGained.has(n));
+  }
+  // Quem você segue conta como mútuo se o nome estiver entre os seguidores OU se o ID dele for de um seguidor.
+  // Assim, uma troca de nome entre as duas listas não gera falso "não segue de volta".
+  const followerIdSet=new Set(Object.values(current.followerIds || {}));
+  const idOf=n=>ids.get(n) || current.followingIds?.[n];
+  const nonmutual=current.following ? current.following.filter(n=>{
+    if(now.has(n))return false;
+    const id=idOf(n);
+    return !(id && followerIdSet.has(id));
+  }) : null;
+  return {followers:current.followers, lost, gained, renamed, nonmutual};
+}
+// Situação de cada saída e entrada usando apenas o histórico já salvo da mesma conta.
+// 'returned' em saídas: o perfil reaparece em consulta posterior. Em entradas: já apareceu antes da consulta anterior.
+export function classify(current, previous, result, history) {
+  const sameAccount=history.filter(s=>s.account===current.account).map(s=>({date:s.date,set:new Set(s.followers)}));
+  const lostStatus=new Map((result.lost||[]).map(n=>[n, sameAccount.some(s=>s.date>current.date && s.set.has(n)) ? 'returned' : 'gone']));
+  const gainedStatus=new Map((result.gained||[]).map(n=>[n, previous && sameAccount.some(s=>s.date<previous.date && s.set.has(n)) ? 'returned' : 'new']));
+  return {lostStatus, gainedStatus};
+}
+// Células que começam com = + - @ ou tab/CR viram texto, para não serem executadas como fórmula.
+export function csvCell(value) {
+  let text=String(value ?? '');
+  if(/^[=+\-@\t\r]/.test(text)) text="'"+text;
+  return '"'+text.replace(/"/g,'""')+'"';
+}
+// Separador ';' e BOM UTF-8: abre com as colunas corretas no Excel em português.
+export function toCsv(rows) {
+  return '﻿'+rows.map(row=>row.map(csvCell).join(';')).join('\r\n')+'\r\n';
 }
 export const categories = {'review':'A revisar', 'personal':'Pessoal', 'artist':'Artista/figura pública', 'brand':'Marca/organização'};
 export function profileKey(account, username) { return JSON.stringify([account, username]); }
@@ -27,17 +68,18 @@ export function validateProfile(p) {
   if (p.photo!==null && (typeof p.photo!=='string' || p.photo.length>100000 || !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(p.photo))) throw Error('Foto inválida no backup. Use imagens adicionadas pelo Círculo.');
   const categorySource=p.categorySource||'manual';
   if(!['manual','suggestion','unclassified'].includes(categorySource))throw Error('Origem da categoria inválida.');
+  if(p.ignored!==undefined && typeof p.ignored!=='boolean') throw Error('Marcação de ignorado inválida.');
   const metadata={};
   if(p.instagramId!==undefined){
     if(typeof p.instagramId!=='string'||!/^\d{1,30}$/.test(p.instagramId)||typeof p.fullName!=='string'||p.fullName.length>200||typeof p.isVerified!=='boolean')throw Error('Dados de perfil inválidos.');
     Object.assign(metadata,{instagramId:p.instagramId,fullName:p.fullName,isVerified:p.isVerified});
   }
-  return {id:profileKey(p.account,p.username),account:p.account,username:p.username,category:p.category,categorySource,photo:p.photo,...metadata};
+  return {id:profileKey(p.account,p.username),account:p.account,username:p.username,category:p.category,categorySource,photo:p.photo,ignored:p.ignored===true,...metadata};
 }
 export function parseSession(data) {
   if(data.complete!==true||typeof data.capturedAt!=='string'||!Number.isFinite(Date.parse(data.capturedAt)))throw Error('Coleta incompleta ou data inválida.');
   const parsed={account:data.account,capturedAt:data.capturedAt,profiles:[]};
-  const byName=new Map(), byId=new Map();
+  const byName=new Map(), byId=new Map(), followerIds={}, followingIds={};
   for(const kind of ['followers','following']){
     const rows=data[kind];
     if(!Array.isArray(rows)||rows.length>20000||rows.length!==data.counts?.[kind]||new Set(rows.map(u=>u?.id)).size!==rows.length)throw Error('Totais da coleta não conferem.');
@@ -46,10 +88,12 @@ export function parseSession(data) {
       const p=validateProfile({account:data.account,username:u?.username,instagramId:u?.id,fullName:u?.fullName,isVerified:u?.isVerified,photo:null,category:'review',categorySource:'unclassified'});
       if(byName.has(p.username)&&byName.get(p.username)!==p.instagramId||byId.has(p.instagramId)&&byId.get(p.instagramId)!==p.username)throw Error('Identidades conflitantes na coleta.');
       byName.set(p.username,p.instagramId);byId.set(p.instagramId,p.username);
-      parsed.profiles.push(p);return p.username;
+      parsed.profiles.push(p);if(kind==='followers')followerIds[p.username]=p.instagramId;else followingIds[p.username]=p.instagramId;return p.username;
     });
     if(new Set(parsed[kind]).size!==rows.length)throw Error('Perfis repetidos na coleta.');
   }
+  parsed.followerIds=followerIds;
+  parsed.followingIds=followingIds;
   parsed.profiles=[...new Map(parsed.profiles.map(p=>[p.id,p])).values()];
   return parsed;
 }
@@ -74,7 +118,42 @@ export function validateSnapshot(s) {
     if (!Array.isArray(s[field]) || s[field].length>500000 || s[field].some(n=>typeof n!=='string' || !/^[a-z0-9_.]{1,100}$/.test(n)) || new Set(s[field]).size!==s[field].length) throw Error('Lista inválida no backup.');
   }
   if (typeof s.id!=='string' || s.id.length>100 || typeof s.source!=='string' || s.source.length>300) throw Error('Consulta inválida no backup.');
-  return {id:s.id, account:s.account, date:s.date, source:s.source, followers:[...s.followers].sort(), following:s.following===null ? null : [...s.following].sort()};
+  const snapshot={id:s.id, account:s.account, date:s.date, source:s.source, followers:[...s.followers].sort(), following:s.following===null ? null : [...s.following].sort()};
+  if (s.followerIds!==undefined) snapshot.followerIds=validateIds(s.followerIds, snapshot.followers);
+  if (s.recentUnfollows!=null) snapshot.recentUnfollows=validateRecentUnfollows(s.recentUnfollows);
+  if (s.followingIds!==undefined) {
+    if (snapshot.following===null) throw Error('Identificadores de seguindo sem a lista correspondente.');
+    snapshot.followingIds=validateIds(s.followingIds, snapshot.following);
+  }
+  return snapshot;
+}
+function validateIds(ids, followers) {
+  const allowed=new Set(followers);
+  if (!ids || typeof ids!=='object' || Array.isArray(ids)) throw Error('Identificadores inválidos no backup.');
+  const names=Object.keys(ids);
+  if (names.length>followers.length || names.some(n=>!allowed.has(n) || typeof ids[n]!=='string' || !/^\d{1,30}$/.test(ids[n]))) throw Error('Identificadores inválidos no backup.');
+  return Object.fromEntries(names.sort().map(n=>[n,ids[n]]));
+}
+// Registro de saídas que o próprio Instagram guarda (recently_unfollowed_profiles.json).
+// Cada item tem timestamp em segundos e um campo de nome de usuário; o rótulo chega com codificação quebrada, por isso o prefixo.
+export function parseRecentUnfollows(items) {
+  if (!Array.isArray(items) || items.length>50000) throw Error('Lista de saídas recentes inválida.');
+  const byName=new Map();
+  for (const item of items) {
+    const field=item?.label_values?.find(lv=>typeof lv?.label==='string' && lv.label.startsWith('Nome de usu'));
+    const username=typeof field?.value==='string' ? field.value.toLowerCase() : '';
+    if (!/^[a-z0-9_.]{1,30}$/.test(username) || !Number.isFinite(item?.timestamp)) throw Error('Há um registro de saída inválido no arquivo.');
+    const seen=byName.get(username);
+    if (!seen || item.timestamp>seen.timestamp) byName.set(username,{username,timestamp:item.timestamp});
+  }
+  return [...byName.values()].sort((a,b)=>a.username.localeCompare(b.username));
+}
+function validateRecentUnfollows(items) {
+  if (!Array.isArray(items) || items.length>50000) throw Error('Saídas recentes inválidas no backup.');
+  return items.map(i=>{
+    if (!i || typeof i.username!=='string' || !/^[a-z0-9_.]{1,100}$/.test(i.username) || !Number.isFinite(i.timestamp)) throw Error('Saídas recentes inválidas no backup.');
+    return {username:i.username, timestamp:i.timestamp};
+  });
 }
 // shortcut: ZIP clássico com arquivos JSON e compressão stored/deflate; ampliar se o Instagram passar a usar ZIP64.
 export async function readZip(buffer) {
@@ -88,7 +167,7 @@ export async function readZip(buffer) {
     if(cursor+46>bytes.length || view.getUint32(cursor,true)!==0x02014b50) throw Error('Não foi possível ler este ZIP.');
     const flags=view.getUint16(cursor+8,true), method=view.getUint16(cursor+10,true), compressed=view.getUint32(cursor+20,true), size=view.getUint32(cursor+24,true), len=view.getUint16(cursor+28,true), extra=view.getUint16(cursor+30,true), comment=view.getUint16(cursor+32,true), offset=view.getUint32(cursor+42,true);
     const path=decoder.decode(bytes.subarray(cursor+46,cursor+46+len)); cursor+=46+len+extra+comment;
-    if(!/(?:^|\/)followers(?:_\d+)?\.json$|(?:^|\/)following\.json$/.test(path)) continue;
+    if(!/(?:^|\/)followers(?:_\d+)?\.json$|(?:^|\/)following\.json$|(?:^|\/)recently_unfollowed_profiles\.json$/.test(path)) continue;
     expanded+=size;
     if(flags&1 || size>30000000 || expanded>60000000 || offset+30>bytes.length) throw Error('ZIP protegido, muito grande ou incompatível.');
     if(view.getUint32(offset,true)!==0x04034b50) throw Error('Entrada ZIP inválida.');
@@ -122,5 +201,8 @@ export async function parseExport(file) {
   if(numbered.some((n,i)=>n!==i+1)) throw Error('Faltam partes da lista de seguidores. Importe o ZIP completo.');
   const followers=[...new Set(followerFiles.flatMap(f=>names(f.data)))].sort();
   const followingFile=files.find(f=>f.path===[...folders][0]+'following.json');
-  return {followers,following:followingFile ? names(followingFile.data.relationships_following,true) : null};
+  const unfollowedFile=files.find(f=>f.path===[...folders][0]+'recently_unfollowed_profiles.json');
+  const result={followers,following:followingFile ? names(followingFile.data.relationships_following,true) : null};
+  if(unfollowedFile)result.recentUnfollows=parseRecentUnfollows(unfollowedFile.data);
+  return result;
 }
